@@ -50,6 +50,7 @@ export default function ResearchPage() {
   });
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [allAvailableSources, setAllAvailableSources] = useState<string[]>([]);
 
   useEffect(() => {
     fetchContent();
@@ -148,6 +149,10 @@ export default function ResearchPage() {
 
       let sortedData = sortContent(allContent, sortBy);
       setContent(sortedData);
+      
+      // Update the list of all available sources (unfiltered)
+      const uniqueSources = [...new Set(allContent.map(c => c.source_name))];
+      setAllAvailableSources(uniqueSources);
     } catch (error) {
       console.error('Error fetching content:', error);
       addToast('Failed to fetch content', 'error');
@@ -245,9 +250,7 @@ export default function ResearchPage() {
     }
   }
 
-  // Get ALL unique sources from content (including those not currently visible due to filters)
-  // This ensures dropdown shows all sources even after filtering
-  const allSources = [...new Set(content.map(c => c.source_name))];
+
   
   const activeFilterCount = 
     (filters.source !== 'all' ? 1 : 0) + 
@@ -364,7 +367,7 @@ export default function ResearchPage() {
                   >
                     All Sources
                   </button>
-                  {allSources.length > 0 && allSources.map(source => (
+                  {allAvailableSources.length > 0 && allAvailableSources.map(source => (
                     <button
                       key={source}
                       onClick={() => {
