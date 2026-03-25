@@ -53,7 +53,7 @@ export default function SynthesisPage() {
     }
   }
 
-  const renderNestedObject = (obj: any): JSX.Element => {
+  const renderNestedObject = (obj: any) => {
     if (Array.isArray(obj)) {
       return (
         <ul className="list-disc list-inside space-y-1 text-gray-700 ml-2">
