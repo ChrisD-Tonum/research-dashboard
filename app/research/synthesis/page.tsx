@@ -89,10 +89,17 @@ function SynthesisContent() {
   }, [topicDropdownOpen]);
 
   useEffect(() => {
-    fetchSynthesis();
+    if (topic.trim()) {
+      fetchSynthesis();
+    } else {
+      setSynthesis(null);
+      setError(null);
+    }
   }, [topic]);
 
   async function fetchSynthesis() {
+    if (!topic.trim()) return;
+    
     setLoading(true);
     setError(null);
     try {
