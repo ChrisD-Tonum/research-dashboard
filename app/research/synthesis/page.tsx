@@ -6,6 +6,7 @@ import Collapsible from '@/app/components/Collapsible';
 import DarkModeToggle from '@/app/components/DarkModeToggle';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
 import Badge from '@/app/components/Badge';
+import { useToast } from '@/app/components/ToastContainer';
 
 interface Synthesis {
   id: number;
@@ -17,6 +18,7 @@ interface Synthesis {
 }
 
 export default function SynthesisPage() {
+  const { addToast } = useToast();
   const [topic, setTopic] = useState('exercise');
   const [synthesis, setSynthesis] = useState<Synthesis | null>(null);
   const [loading, setLoading] = useState(false);
@@ -52,8 +54,19 @@ export default function SynthesisPage() {
     } catch (error) {
       console.error('Error fetching synthesis:', error);
       setError('Error loading synthesis. Please try again.');
+      addToast('Failed to load synthesis', 'error');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function copyToClipboard(text: string, label: string = 'Text') {
+    try {
+      await navigator.clipboard.writeText(text);
+      addToast(`${label} copied to clipboard`, 'success');
+    } catch (error) {
+      console.error('Copy error:', error);
+      addToast('Failed to copy to clipboard', 'error');
     }
   }
 
@@ -168,10 +181,10 @@ export default function SynthesisPage() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 transition-colors">
       <div className="max-w-4xl mx-auto">
         {/* Header with Gradient & Dark Mode Toggle */}
-        <div className="mb-8 flex justify-between items-start">
+        <div className="mb-8 flex justify-between items-start pt-10 md:pt-0">
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 dark:from-purple-400 dark:via-indigo-400 dark:to-blue-400 bg-clip-text text-transparent mb-2">
-              Research Synthesis
+              Synthesis
             </h1>
             <p className="text-gray-600 dark:text-gray-300">AI-generated structured research summaries</p>
           </div>
@@ -328,7 +341,15 @@ export default function SynthesisPage() {
               {synthesis.full_text && !synthesis.outline?.raw && (
                 <div className="mt-8 pt-8 border-t border-gray-300 dark:border-gray-600">
                   <Collapsible title="Full Text" icon="📖" defaultOpen={false}>
-                    <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 text-sm">{synthesis.full_text}</p>
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => copyToClipboard(synthesis.full_text, 'Full text')}
+                        className="mb-4 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        📋 Copy Full Text
+                      </button>
+                      <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 text-sm">{synthesis.full_text}</p>
+                    </div>
                   </Collapsible>
                 </div>
               )}

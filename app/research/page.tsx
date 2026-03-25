@@ -6,6 +6,7 @@ import { exportToCSV, exportToJSON, exportToPDF } from '@/lib/export';
 import DarkModeToggle from '@/app/components/DarkModeToggle';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
 import Badge from '@/app/components/Badge';
+import { useToast } from '@/app/components/ToastContainer';
 
 interface Article {
   id: number;
@@ -17,9 +18,13 @@ interface Article {
   crawl_date: string;
 }
 
+type SortOption = 'date-newest' | 'date-oldest' | 'relevance' | 'source';
+
 export default function ResearchPage() {
+  const { addToast } = useToast();
   const [topic, setTopic] = useState('exercise');
   const [articles, setArticles] = useState<Article[]>([]);
+  const [sortBy, setSortBy] = useState<SortOption>('date-newest');
   const [filters, setFilters] = useState({
     source: 'all',
     keyword: '',
@@ -49,24 +54,96 @@ export default function ResearchPage() {
       const { data, error } = await query;
 
       if (error) throw error;
-      setArticles(data || []);
+      
+      let sortedData = data || [];
+      sortedData = sortArticles(sortedData, sortBy);
+      
+      setArticles(sortedData);
     } catch (error) {
       console.error('Error fetching articles:', error);
+      addToast('Failed to fetch articles', 'error');
     } finally {
       setLoading(false);
     }
   }
 
+  function sortArticles(articlesData: Article[], sort: SortOption): Article[] {
+    const copy = [...articlesData];
+    
+    switch (sort) {
+      case 'date-newest':
+        return copy.sort((a, b) => new Date(b.crawl_date).getTime() - new Date(a.crawl_date).getTime());
+      case 'date-oldest':
+        return copy.sort((a, b) => new Date(a.crawl_date).getTime() - new Date(b.crawl_date).getTime());
+      case 'source':
+        return copy.sort((a, b) => a.source_name.localeCompare(b.source_name));
+      case 'relevance':
+      default:
+        return copy;
+    }
+  }
+
+  function handleSortChange(newSort: SortOption) {
+    setSortBy(newSort);
+    setArticles(sortArticles(articles, newSort));
+  }
+
+  function handleClearAllFilters() {
+    setFilters({ source: 'all', keyword: '' });
+    addToast('Filters cleared', 'info');
+  }
+
+  async function handleExportCSV() {
+    try {
+      await exportToCSV(articles, topic);
+      addToast('Exported to CSV successfully', 'success');
+    } catch (error) {
+      console.error('Export error:', error);
+      addToast('Failed to export CSV', 'error');
+    }
+  }
+
+  async function handleExportJSON() {
+    try {
+      await exportToJSON(articles, topic);
+      addToast('Exported to JSON successfully', 'success');
+    } catch (error) {
+      console.error('Export error:', error);
+      addToast('Failed to export JSON', 'error');
+    }
+  }
+
+  async function handleExportPDF() {
+    try {
+      await exportToPDF(articles, topic);
+      addToast('Exported to PDF successfully', 'success');
+    } catch (error) {
+      console.error('Export error:', error);
+      addToast('Failed to export PDF', 'error');
+    }
+  }
+
+  async function copyToClipboard(url: string) {
+    try {
+      await navigator.clipboard.writeText(url);
+      addToast('URL copied to clipboard', 'success');
+    } catch (error) {
+      console.error('Copy error:', error);
+      addToast('Failed to copy URL', 'error');
+    }
+  }
+
   const sources = [...new Set(articles.map(a => a.source_name))];
+  const activeFilterCount = (filters.source !== 'all' ? 1 : 0) + (filters.keyword ? 1 : 0);
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 transition-colors">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6 md:p-8 transition-colors md:ml-0">
       <div className="max-w-6xl mx-auto">
         {/* Header with Gradient & Dark Mode Toggle */}
-        <div className="mb-8 flex justify-between items-start">
+        <div className="mb-8 flex justify-between items-start pt-10 md:pt-0">
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 dark:from-blue-400 dark:via-indigo-400 dark:to-purple-400 bg-clip-text text-transparent mb-2">
-              Research Dashboard
+              Articles
             </h1>
             <p className="text-gray-600 dark:text-gray-300">Explore curated research articles</p>
           </div>
@@ -100,9 +177,26 @@ export default function ResearchPage() {
         {/* Filters Section */}
         <div className="card-base card-hover p-6 mb-6">
           <h2 className="text-lg font-semibold text-header-primary mb-4 flex items-center gap-2">
-            <span>🔍</span> Filters
+            <span>🔍</span> Filters & Sort
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          {/* Sort and Filter Controls */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-header-primary mb-2">
+                Sort by
+              </label>
+              <select
+                value={sortBy}
+                onChange={(e) => handleSortChange(e.target.value as SortOption)}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              >
+                <option value="date-newest">📅 Date (Newest)</option>
+                <option value="date-oldest">📅 Date (Oldest)</option>
+                <option value="source">📰 Source</option>
+                <option value="relevance">⭐ Relevance</option>
+              </select>
+            </div>
             <div>
               <label className="block text-sm font-medium text-header-primary mb-2">
                 Source
@@ -133,6 +227,42 @@ export default function ResearchPage() {
               />
             </div>
           </div>
+
+          {/* Active Filters Display */}
+          {activeFilterCount > 0 && (
+            <div className="flex flex-wrap items-center gap-2 mb-2">
+              {filters.source !== 'all' && (
+                <span className="filter-pill">
+                  📰 {filters.source}
+                  <button
+                    onClick={() => setFilters({ ...filters, source: 'all' })}
+                    className="filter-pill-close"
+                    aria-label={`Remove ${filters.source} filter`}
+                  >
+                    ✕
+                  </button>
+                </span>
+              )}
+              {filters.keyword && (
+                <span className="filter-pill">
+                  🔎 {filters.keyword}
+                  <button
+                    onClick={() => setFilters({ ...filters, keyword: '' })}
+                    className="filter-pill-close"
+                    aria-label="Remove keyword filter"
+                  >
+                    ✕
+                  </button>
+                </span>
+              )}
+              <button
+                onClick={handleClearAllFilters}
+                className="text-sm text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+              >
+                Clear All
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Results Section */}
@@ -144,19 +274,19 @@ export default function ResearchPage() {
             {articles.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={() => exportToCSV(articles, topic)}
+                  onClick={handleExportCSV}
                   className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
                 >
                   📊 Export CSV
                 </button>
                 <button
-                  onClick={() => exportToJSON(articles, topic)}
+                  onClick={handleExportJSON}
                   className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
                 >
                   📋 Export JSON
                 </button>
                 <button
-                  onClick={() => exportToPDF(articles, topic)}
+                  onClick={handleExportPDF}
                   className="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
                 >
                   📄 Export PDF
@@ -190,30 +320,44 @@ export default function ResearchPage() {
           
           <div className="space-y-4">
             {articles.map((article) => (
-              <div key={article.id} className="article-item border border-gray-300 dark:border-gray-600 rounded-lg p-5 hover:shadow-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-all bg-white dark:bg-gray-800">
-                <h3 className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 hover:underline mb-3">
-                  <a href={article.url} target="_blank" rel="noopener noreferrer">
-                    {article.title}
-                  </a>
-                </h3>
-                
-                {/* Metadata Badges */}
-                <div className="flex flex-wrap gap-2 mb-3">
-                  <Badge 
-                    label={article.source_name} 
-                    variant="source" 
-                    icon="📰"
-                    size="sm"
-                  />
-                  <Badge 
-                    label={new Date(article.crawl_date).toLocaleDateString()} 
-                    variant="date" 
-                    icon="📅"
-                    size="sm"
-                  />
+              <div key={article.id} className="article-item border border-gray-300 dark:border-gray-600 rounded-lg p-5 hover:shadow-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-all bg-white dark:bg-gray-800 group">
+                <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 hover:underline mb-3">
+                      <a href={article.url} target="_blank" rel="noopener noreferrer">
+                        {article.title}
+                      </a>
+                    </h3>
+                    
+                    {/* Metadata Badges */}
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <Badge 
+                        label={article.source_name} 
+                        variant="source" 
+                        icon="📰"
+                        size="sm"
+                      />
+                      <Badge 
+                        label={new Date(article.crawl_date).toLocaleDateString()} 
+                        variant="date" 
+                        icon="📅"
+                        size="sm"
+                      />
+                    </div>
+                    
+                    <p className="text-gray-700 dark:text-gray-300 line-clamp-3 leading-relaxed">{article.content}</p>
+                  </div>
+                  
+                  {/* Copy URL Button */}
+                  <button
+                    onClick={() => copyToClipboard(article.url)}
+                    className="md:opacity-0 md:group-hover:opacity-100 px-3 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-600 dark:text-gray-300 rounded-lg text-sm font-medium transition-all whitespace-nowrap"
+                    title={article.url}
+                    aria-label="Copy article URL"
+                  >
+                    📋 Copy Link
+                  </button>
                 </div>
-                
-                <p className="text-gray-700 dark:text-gray-300 line-clamp-3 leading-relaxed">{article.content}</p>
               </div>
             ))}
           </div>
