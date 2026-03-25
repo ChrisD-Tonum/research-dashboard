@@ -30,21 +30,57 @@ export default function SynthesisPage() {
         .from('syntheses')
         .select('*')
         .eq('topic', topic)
-        .eq('format', 'educational-page')
-        .single();
+        .order('generated_at', { ascending: false })
+        .limit(1);
 
-      if (err && err.code !== 'PGRST116') {
+      if (err) {
+        console.error('Supabase error:', err);
         throw err;
       }
 
-      setSynthesis(data || null);
+      if (data && data.length > 0) {
+        console.log('Synthesis data:', JSON.stringify(data[0], null, 2));
+        setSynthesis(data[0]);
+      } else {
+        setSynthesis(null);
+        setError('Synthesis not found. Try running the synthesis command first.');
+      }
     } catch (error) {
       console.error('Error fetching synthesis:', error);
-      setError('Synthesis not found. Try running the synthesis command first.');
+      setError('Error loading synthesis. Please try again.');
     } finally {
       setLoading(false);
     }
   }
+
+  const renderNestedObject = (obj: any): JSX.Element => {
+    if (Array.isArray(obj)) {
+      return (
+        <ul className="list-disc list-inside space-y-1 text-gray-700 ml-2">
+          {obj.map((item: any, idx: number) => (
+            <li key={idx}>{String(item)}</li>
+          ))}
+        </ul>
+      );
+    }
+
+    if (typeof obj === 'object' && obj !== null) {
+      return (
+        <div className="ml-4 space-y-2 text-sm">
+          {Object.entries(obj).map(([key, value]: [string, any]) => (
+            <div key={key}>
+              <strong className="text-gray-800">{key}:</strong>
+              <div className="ml-3 mt-1">
+                {renderNestedObject(value)}
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return <span className="text-gray-700">{String(obj)}</span>;
+  };
 
   const renderOutline = (outline: any) => {
     if (!outline) return null;
@@ -64,14 +100,14 @@ export default function SynthesisPage() {
         {outline.overview && (
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Overview</h2>
-            <p className="text-gray-700">{outline.overview}</p>
+            {renderNestedObject(outline.overview)}
           </section>
         )}
 
         {outline.mechanism && (
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Mechanism of Action</h2>
-            <p className="text-gray-700">{outline.mechanism}</p>
+            {renderNestedObject(outline.mechanism)}
           </section>
         )}
 
@@ -83,15 +119,7 @@ export default function SynthesisPage() {
                 {Object.entries(outline.findings).map(([source, items]: [string, any]) => (
                   <div key={source}>
                     <h3 className="text-lg font-semibold text-gray-800">{source}</h3>
-                    {Array.isArray(items) ? (
-                      <ul className="list-disc list-inside space-y-1 text-gray-700 ml-2">
-                        {items.map((item: string, idx: number) => (
-                          <li key={idx}>{item}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-gray-700 ml-2">{items}</p>
-                    )}
+                    {renderNestedObject(items)}
                   </div>
                 ))}
               </div>
@@ -104,52 +132,28 @@ export default function SynthesisPage() {
         {outline.benefits && (
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Potential Benefits</h2>
-            {Array.isArray(outline.benefits) ? (
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
-                {outline.benefits.map((benefit: string, idx: number) => (
-                  <li key={idx}>{benefit}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-700">{outline.benefits}</p>
-            )}
+            {renderNestedObject(outline.benefits)}
           </section>
         )}
 
         {outline.risks && (
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Risks and Safety</h2>
-            {Array.isArray(outline.risks) ? (
-              <ul className="list-disc list-inside space-y-2 text-gray-700">
-                {outline.risks.map((risk: string, idx: number) => (
-                  <li key={idx}>{risk}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-700">{outline.risks}</p>
-            )}
+            {renderNestedObject(outline.risks)}
           </section>
         )}
 
         {outline.legal_status && (
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Legal Status</h2>
-            <p className="text-gray-700">{outline.legal_status}</p>
+            {renderNestedObject(outline.legal_status)}
           </section>
         )}
 
         {outline.citations && (
           <section>
             <h2 className="text-2xl font-bold text-gray-900 mb-3">Citations</h2>
-            {Array.isArray(outline.citations) ? (
-              <ul className="list-decimal list-inside space-y-2 text-gray-700">
-                {outline.citations.map((citation: string, idx: number) => (
-                  <li key={idx}>{citation}</li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-gray-700">{outline.citations}</p>
-            )}
+            {renderNestedObject(outline.citations)}
           </section>
         )}
       </div>
