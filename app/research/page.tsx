@@ -411,7 +411,7 @@ export default function ResearchPage() {
         {/* Navigation & Stats */}
         <div className="mb-6 flex gap-4">
           <a
-            href="/research/synthesis"
+            href={`/research/synthesis${topic ? `?topic=${encodeURIComponent(topic)}` : ''}`}
             className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
           >
             📊 View Synthesis

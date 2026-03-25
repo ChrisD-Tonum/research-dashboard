@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Collapsible from '@/app/components/Collapsible';
 import DarkModeToggle from '@/app/components/DarkModeToggle';
@@ -25,10 +26,67 @@ interface Synthesis {
 
 export default function SynthesisPage() {
   const { addToast } = useToast();
+  const searchParams = useSearchParams();
   const [topic, setTopic] = useState('');
   const [synthesis, setSynthesis] = useState<Synthesis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [topicDropdownOpen, setTopicDropdownOpen] = useState(false);
+  const [availableTopics, setAvailableTopics] = useState<string[]>([]);
+
+  // Initialize topic from URL query param on mount
+  useEffect(() => {
+    const topicParam = searchParams.get('topic');
+    if (topicParam) {
+      setTopic(topicParam);
+    }
+  }, [searchParams]);
+
+  // Fetch all available topics on mount
+  useEffect(() => {
+    async function fetchTopics() {
+      try {
+        const { data: articles } = await supabase
+          .from('articles')
+          .select('topic');
+
+        const { data: pages } = await supabase
+          .from('web_pages')
+          .select('topic');
+
+        const topics = new Set<string>();
+        if (articles) {
+          articles.forEach(a => topics.add(a.topic));
+        }
+        if (pages) {
+          pages.forEach(p => topics.add(p.topic));
+        }
+
+        setAvailableTopics(Array.from(topics).sort());
+      } catch (error) {
+        console.error('Error fetching topics:', error);
+      }
+    }
+
+    fetchTopics();
+  }, []);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const topicFilterDiv = document.getElementById('topic-filter-dropdown');
+      if (topicFilterDiv && !topicFilterDiv.contains(event.target as Node)) {
+        setTopicDropdownOpen(false);
+      }
+    }
+
+    if (topicDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [topicDropdownOpen]);
 
   useEffect(() => {
     fetchSynthesis();
@@ -238,6 +296,40 @@ export default function SynthesisPage() {
           >
             ← Back to Articles
           </a>
+        </div>
+
+        {/* Topic Dropdown */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg p-6 mb-6 transition-colors relative" id="topic-filter-dropdown">
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+            Recent Topics
+          </label>
+          <button
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-left flex justify-between items-center"
+            onClick={() => setTopicDropdownOpen(!topicDropdownOpen)}
+          >
+            <span>{availableTopics.length > 0 ? 'Select a topic...' : 'No topics available'}</span>
+            <span className={`text-xs transition-transform ${topicDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {topicDropdownOpen && availableTopics.length > 0 && (
+            <div className="absolute top-full left-6 right-6 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg mt-1 shadow-lg z-10 max-h-64 overflow-y-auto">
+              {availableTopics.map(t => (
+                <button
+                  key={t}
+                  onClick={() => {
+                    setTopic(t);
+                    setTopicDropdownOpen(false);
+                  }}
+                  className={`w-full px-4 py-2 text-left text-sm transition border-t border-gray-200 dark:border-gray-600 ${
+                    topic === t
+                      ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                      : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Topic Input */}
