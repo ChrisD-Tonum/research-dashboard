@@ -6,6 +6,8 @@ import { exportToCSV, exportToJSON, exportToPDF } from '@/lib/export';
 import DarkModeToggle from '@/app/components/DarkModeToggle';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
 import Badge from '@/app/components/Badge';
+import SearchHistory from '@/app/components/SearchHistory';
+import StatsDashboard from '@/app/components/StatsDashboard';
 import { useToast } from '@/app/components/ToastContainer';
 
 interface Article {
@@ -33,6 +35,25 @@ export default function ResearchPage() {
 
   useEffect(() => {
     fetchArticles();
+    // Auto-save topic to history
+    if (topic.trim()) {
+      const stored = localStorage.getItem('researchHistory');
+      let history = [];
+      if (stored) {
+        try {
+          history = JSON.parse(stored);
+        } catch (e) {
+          console.error('Failed to parse search history:', e);
+        }
+      }
+      // Remove duplicate if it exists
+      const filtered = history.filter((item: any) => item.topic.toLowerCase() !== topic.toLowerCase());
+      // Add new item at the beginning
+      const updated = [{ topic, timestamp: Date.now() }, ...filtered];
+      // Keep only last 10 items
+      const limited = updated.slice(0, 10);
+      localStorage.setItem('researchHistory', JSON.stringify(limited));
+    }
   }, [topic, filters]);
 
   async function fetchArticles() {
@@ -162,6 +183,7 @@ export default function ResearchPage() {
             placeholder="Enter topic (e.g., BPC-157, exercise)"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
           />
+          <SearchHistory onSelect={setTopic} currentTopic={topic} />
         </div>
 
         {/* Navigation */}
@@ -173,6 +195,9 @@ export default function ResearchPage() {
             📊 View Synthesis
           </a>
         </div>
+
+        {/* Stats Dashboard */}
+        <StatsDashboard articles={articles} loading={loading} />
 
         {/* Filters Section */}
         <div className="card-base card-hover p-6 mb-6">
