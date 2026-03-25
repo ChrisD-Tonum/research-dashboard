@@ -49,6 +49,7 @@ export default function ResearchPage() {
     keyword: '',
   });
   const [loading, setLoading] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
     fetchContent();
@@ -69,6 +70,23 @@ export default function ResearchPage() {
       localStorage.setItem('researchHistory', JSON.stringify(limited));
     }
   }, [topic, filters, contentTypeFilter]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      const sourceFilterDiv = document.getElementById('source-filter-dropdown');
+      if (sourceFilterDiv && !sourceFilterDiv.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+
+    if (dropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => {
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+  }, [dropdownOpen]);
 
   async function fetchContent() {
     setLoading(true);
@@ -236,6 +254,11 @@ export default function ResearchPage() {
     (filters.keyword ? 1 : 0) + 
     (contentTypeFilter !== 'all' ? 1 : 0);
 
+  // Calculate total counts for each type (not filtered by active tab)
+  const totalArticles = content.filter(c => c.type === 'article').length;
+  const totalPages = content.filter(c => c.type === 'page').length;
+
+  // Filter displayed content based on active tab
   const articles = content.filter(c => c.type === 'article') as Article[];
   const pages = content.filter(c => c.type === 'page') as WebPage[];
 
@@ -286,7 +309,7 @@ export default function ResearchPage() {
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Content Type</h3>
           <div className="flex gap-2">
             {(['all', 'articles', 'pages'] as const).map(type => {
-              const displayCount = type === 'all' ? content.length : (type === 'articles' ? articles.length : pages.length);
+              const displayCount = type === 'all' ? (totalArticles + totalPages) : (type === 'articles' ? totalArticles : totalPages);
               return (
                 <button
                   key={type}
@@ -309,42 +332,50 @@ export default function ResearchPage() {
         {/* Filters & Sort */}
         <div className="card-base p-6 mb-6">
           <div className="flex gap-4 items-end flex-wrap">
-            <div className="flex-1 min-w-64 relative group">
+            <div className="flex-1 min-w-64 relative" id="source-filter-dropdown">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Filter by Source
               </label>
               <button
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-left flex justify-between items-center"
-                onClick={(e) => e.currentTarget.parentElement?.classList.toggle('open')}
+                onClick={() => setDropdownOpen(!dropdownOpen)}
               >
                 <span>{filters.source === 'all' ? 'All Sources' : filters.source}</span>
-                <span className="text-xs">▼</span>
+                <span className={`text-xs transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}>▼</span>
               </button>
-              <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg mt-1 shadow-lg z-10 hidden group-hover:block min-w-64">
-                <button
-                  onClick={() => setFilters({ ...filters, source: 'all' })}
-                  className={`w-full px-3 py-2 text-left text-sm transition ${
-                    filters.source === 'all'
-                      ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                      : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
-                  }`}
-                >
-                  All Sources
-                </button>
-                {sources.length > 0 && sources.map(source => (
+              {dropdownOpen && (
+                <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg mt-1 shadow-lg z-10 min-w-64">
                   <button
-                    key={source}
-                    onClick={() => setFilters({ ...filters, source })}
-                    className={`w-full px-3 py-2 text-left text-sm transition border-t border-gray-200 dark:border-gray-600 ${
-                      filters.source === source
+                    onClick={() => {
+                      setFilters({ ...filters, source: 'all' });
+                      setDropdownOpen(false);
+                    }}
+                    className={`w-full px-3 py-2 text-left text-sm transition ${
+                      filters.source === 'all'
                         ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
                         : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
                     }`}
                   >
-                    {source}
+                    All Sources
                   </button>
-                ))}
-              </div>
+                  {sources.length > 0 && sources.map(source => (
+                    <button
+                      key={source}
+                      onClick={() => {
+                        setFilters({ ...filters, source });
+                        setDropdownOpen(false);
+                      }}
+                      className={`w-full px-3 py-2 text-left text-sm transition border-t border-gray-200 dark:border-gray-600 ${
+                        filters.source === source
+                          ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                          : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                      }`}
+                    >
+                      {source}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="flex-1 min-w-64">
