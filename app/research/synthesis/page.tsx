@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import Collapsible from '@/app/components/Collapsible';
@@ -24,7 +24,7 @@ interface Synthesis {
   generated_at: string;
 }
 
-export default function SynthesisPage() {
+function SynthesisContent() {
   const { addToast } = useToast();
   const searchParams = useSearchParams();
   const [topic, setTopic] = useState('');
@@ -525,5 +525,13 @@ export default function SynthesisPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SynthesisPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8"><div className="max-w-4xl mx-auto"><LoadingSpinner size="lg" text="Loading..." /></div></div>}>
+      <SynthesisContent />
+    </Suspense>
   );
 }
