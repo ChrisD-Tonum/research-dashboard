@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import { exportToCSV, exportToJSON, exportToPDF } from '@/lib/export';
 
 interface Article {
   id: number;
@@ -116,9 +117,33 @@ export default function ResearchPage() {
 
         {/* Results */}
         <div className="bg-white rounded-lg shadow p-6">
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
-            Results ({articles.length})
-          </h2>
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <h2 className="text-lg font-semibold text-gray-900">
+              Results ({articles.length})
+            </h2>
+            {articles.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => exportToCSV(articles, topic)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm font-medium transition"
+                >
+                  📊 Export CSV
+                </button>
+                <button
+                  onClick={() => exportToJSON(articles, topic)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition"
+                >
+                  📋 Export JSON
+                </button>
+                <button
+                  onClick={() => exportToPDF(articles, topic)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm font-medium transition"
+                >
+                  📄 Export PDF
+                </button>
+              </div>
+            )}
+          </div>
           
           {loading && <p className="text-gray-500">Loading...</p>}
           
