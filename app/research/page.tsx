@@ -50,7 +50,40 @@ export default function ResearchPage() {
   });
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [topicDropdownOpen, setTopicDropdownOpen] = useState(false);
   const [allAvailableSources, setAllAvailableSources] = useState<string[]>([]);
+  const [availableTopics, setAvailableTopics] = useState<string[]>([]);
+
+  // Fetch all available topics on mount
+  useEffect(() => {
+    async function fetchTopics() {
+      try {
+        const { data: articles } = await supabase
+          .from('articles')
+          .select('topic')
+          .distinct();
+
+        const { data: pages } = await supabase
+          .from('web_pages')
+          .select('topic')
+          .distinct();
+
+        const topics = new Set<string>();
+        if (articles) {
+          articles.forEach(a => topics.add(a.topic));
+        }
+        if (pages) {
+          pages.forEach(p => topics.add(p.topic));
+        }
+
+        setAvailableTopics(Array.from(topics).sort());
+      } catch (error) {
+        console.error('Error fetching topics:', error);
+      }
+    }
+
+    fetchTopics();
+  }, []);
 
   // Fetch all available sources (unfiltered) whenever topic changes
   useEffect(() => {
@@ -111,22 +144,27 @@ export default function ResearchPage() {
     }
   }, [topic, filters, contentTypeFilter]);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const sourceFilterDiv = document.getElementById('source-filter-dropdown');
+      const topicFilterDiv = document.getElementById('topic-filter-dropdown');
+      
       if (sourceFilterDiv && !sourceFilterDiv.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
+      if (topicFilterDiv && !topicFilterDiv.contains(event.target as Node)) {
+        setTopicDropdownOpen(false);
+      }
     }
 
-    if (dropdownOpen) {
+    if (dropdownOpen || topicDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [dropdownOpen]);
+  }, [dropdownOpen, topicDropdownOpen]);
 
   async function fetchContent() {
     setLoading(true);
@@ -318,6 +356,40 @@ export default function ResearchPage() {
             <p className="text-gray-600 dark:text-gray-300">Articles & Reference Pages</p>
           </div>
           <DarkModeToggle />
+        </div>
+
+        {/* Topic Dropdown */}
+        <div className="card-base card-hover p-6 mb-6 relative" id="topic-filter-dropdown">
+          <label className="block text-sm font-medium text-header-primary mb-2">
+            Recent Topics
+          </label>
+          <button
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-left flex justify-between items-center"
+            onClick={() => setTopicDropdownOpen(!topicDropdownOpen)}
+          >
+            <span>{availableTopics.length > 0 ? 'Select a topic...' : 'No topics available'}</span>
+            <span className={`text-xs transition-transform ${topicDropdownOpen ? 'rotate-180' : ''}`}>▼</span>
+          </button>
+          {topicDropdownOpen && availableTopics.length > 0 && (
+            <div className="absolute top-full left-6 right-6 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg mt-1 shadow-lg z-10 max-h-64 overflow-y-auto">
+              {availableTopics.map(t => (
+                <button
+                  key={t}
+                  onClick={() => {
+                    setTopic(t);
+                    setTopicDropdownOpen(false);
+                  }}
+                  className={`w-full px-4 py-2 text-left text-sm transition border-t border-gray-200 dark:border-gray-600 ${
+                    topic === t
+                      ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                      : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Topic Input */}
