@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import Collapsible from '@/app/components/Collapsible';
 import DarkModeToggle from '@/app/components/DarkModeToggle';
+import LoadingSpinner from '@/app/components/LoadingSpinner';
+import Badge from '@/app/components/Badge';
 
 interface Synthesis {
   id: number;
@@ -204,7 +206,7 @@ export default function SynthesisPage() {
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg p-8 transition-colors">
           {loading && (
             <div className="text-center py-12">
-              <p className="text-gray-500 dark:text-gray-400 animate-pulse">⏳ Loading synthesis...</p>
+              <LoadingSpinner size="md" text="Loading synthesis..." />
             </div>
           )}
 
@@ -226,10 +228,29 @@ export default function SynthesisPage() {
           {synthesis && !loading && (
             <div>
               <div className="mb-8 pb-6 border-b border-gray-300 dark:border-gray-600">
-                <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{topic}</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  ⏰ Generated: {new Date(synthesis.generated_at).toLocaleDateString()} at {new Date(synthesis.generated_at).toLocaleTimeString()}
-                </p>
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-4">{topic}</h2>
+                
+                {/* Metadata Badges */}
+                <div className="flex flex-wrap gap-2">
+                  <Badge 
+                    label={new Date(synthesis.generated_at).toLocaleDateString()} 
+                    variant="date" 
+                    icon="📅"
+                    size="sm"
+                  />
+                  <Badge 
+                    label={new Date(synthesis.generated_at).toLocaleTimeString()} 
+                    variant="default" 
+                    icon="⏰"
+                    size="sm"
+                  />
+                  <Badge 
+                    label={synthesis.format || 'Structured'} 
+                    variant="tag" 
+                    icon="📋"
+                    size="sm"
+                  />
+                </div>
               </div>
 
               {/* Collapsible Sections */}

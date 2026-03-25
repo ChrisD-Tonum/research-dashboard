@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { exportToCSV, exportToJSON, exportToPDF } from '@/lib/export';
 import DarkModeToggle from '@/app/components/DarkModeToggle';
+import LoadingSpinner from '@/app/components/LoadingSpinner';
+import Badge from '@/app/components/Badge';
 
 interface Article {
   id: number;
@@ -165,7 +167,7 @@ export default function ResearchPage() {
           
           {loading && (
             <div className="py-12 text-center">
-              <p className="text-gray-500 dark:text-gray-400 animate-pulse">⏳ Loading articles...</p>
+              <LoadingSpinner size="md" text="Loading articles..." />
             </div>
           )}
           
@@ -188,16 +190,30 @@ export default function ResearchPage() {
           
           <div className="space-y-4">
             {articles.map((article) => (
-              <div key={article.id} className="border border-gray-300 dark:border-gray-600 rounded-lg p-4 hover:shadow-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-all bg-white dark:bg-gray-800">
-                <h3 className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 hover:underline">
+              <div key={article.id} className="article-item border border-gray-300 dark:border-gray-600 rounded-lg p-5 hover:shadow-lg hover:border-indigo-400 dark:hover:border-indigo-500 transition-all bg-white dark:bg-gray-800">
+                <h3 className="text-lg font-semibold text-indigo-600 dark:text-indigo-400 hover:underline mb-3">
                   <a href={article.url} target="_blank" rel="noopener noreferrer">
                     {article.title}
                   </a>
                 </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  <span className="font-medium">{article.source_name}</span> • {new Date(article.crawl_date).toLocaleDateString()}
-                </p>
-                <p className="text-gray-700 dark:text-gray-300 mt-2 line-clamp-3">{article.content}</p>
+                
+                {/* Metadata Badges */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  <Badge 
+                    label={article.source_name} 
+                    variant="source" 
+                    icon="📰"
+                    size="sm"
+                  />
+                  <Badge 
+                    label={new Date(article.crawl_date).toLocaleDateString()} 
+                    variant="date" 
+                    icon="📅"
+                    size="sm"
+                  />
+                </div>
+                
+                <p className="text-gray-700 dark:text-gray-300 line-clamp-3 leading-relaxed">{article.content}</p>
               </div>
             ))}
           </div>
