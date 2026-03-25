@@ -58,16 +58,17 @@ export default function ResearchPage() {
   useEffect(() => {
     async function fetchTopics() {
       try {
+        // Fetch all articles
         const { data: articles } = await supabase
           .from('articles')
-          .select('topic')
-          .distinct();
+          .select('topic');
 
+        // Fetch all web pages
         const { data: pages } = await supabase
           .from('web_pages')
-          .select('topic')
-          .distinct();
+          .select('topic');
 
+        // Collect unique topics
         const topics = new Set<string>();
         if (articles) {
           articles.forEach(a => topics.add(a.topic));
