@@ -79,6 +79,16 @@ export default function ResearchPage() {
           />
         </div>
 
+        {/* Navigation */}
+        <div className="mb-6 flex gap-4">
+          <a
+            href="/research/synthesis"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
+            📊 View Synthesis
+          </a>
+        </div>
+
         {/* Filters */}
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Filters</h2>
