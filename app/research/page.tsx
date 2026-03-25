@@ -52,6 +52,45 @@ export default function ResearchPage() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [allAvailableSources, setAllAvailableSources] = useState<string[]>([]);
 
+  // Fetch all available sources (unfiltered) whenever topic changes
+  useEffect(() => {
+    if (!topic.trim()) {
+      setAllAvailableSources([]);
+      return;
+    }
+
+    async function fetchAllSources() {
+      try {
+        // Fetch ALL articles for this topic (no source filter)
+        const { data: allArticles } = await supabase
+          .from('articles')
+          .select('source_name')
+          .eq('topic', topic);
+
+        // Fetch ALL pages for this topic (no source filter)
+        const { data: allPages } = await supabase
+          .from('web_pages')
+          .select('source_name')
+          .eq('topic', topic);
+
+        const sources = new Set<string>();
+        if (allArticles) {
+          allArticles.forEach(a => sources.add(a.source_name));
+        }
+        if (allPages) {
+          allPages.forEach(p => sources.add(p.source_name));
+        }
+
+        setAllAvailableSources(Array.from(sources).sort());
+      } catch (error) {
+        console.error('Error fetching sources:', error);
+      }
+    }
+
+    fetchAllSources();
+  }, [topic]);
+
+  // Fetch filtered content whenever topic, filters, or contentTypeFilter changes
   useEffect(() => {
     fetchContent();
     // Auto-save topic to history
@@ -149,10 +188,6 @@ export default function ResearchPage() {
 
       let sortedData = sortContent(allContent, sortBy);
       setContent(sortedData);
-      
-      // Update the list of all available sources (unfiltered)
-      const uniqueSources = [...new Set(allContent.map(c => c.source_name))];
-      setAllAvailableSources(uniqueSources);
     } catch (error) {
       console.error('Error fetching content:', error);
       addToast('Failed to fetch content', 'error');
