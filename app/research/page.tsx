@@ -245,7 +245,10 @@ export default function ResearchPage() {
     }
   }
 
-  const sources = [...new Set(content.map(c => c.source_name))];
+  // Get ALL unique sources from content (including those not currently visible due to filters)
+  // This ensures dropdown shows all sources even after filtering
+  const allSources = [...new Set(content.map(c => c.source_name))];
+  
   const activeFilterCount = 
     (filters.source !== 'all' ? 1 : 0) + 
     (filters.keyword ? 1 : 0) + 
@@ -361,7 +364,7 @@ export default function ResearchPage() {
                   >
                     All Sources
                   </button>
-                  {sources.length > 0 && sources.map(source => (
+                  {allSources.length > 0 && allSources.map(source => (
                     <button
                       key={source}
                       onClick={() => {
