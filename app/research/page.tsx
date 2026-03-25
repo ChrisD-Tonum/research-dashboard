@@ -93,60 +93,57 @@ export default function ResearchPage() {
     try {
       let allContent: ContentItem[] = [];
 
-      // Fetch articles (if filter includes articles)
-      if (contentTypeFilter === 'all' || contentTypeFilter === 'articles') {
-        let articleQuery = supabase
-          .from('articles')
-          .select('*')
-          .eq('topic', topic);
+      // ALWAYS fetch both articles and pages (regardless of filter) so we can calculate accurate counts
+      // Fetch articles
+      let articleQuery = supabase
+        .from('articles')
+        .select('*')
+        .eq('topic', topic);
 
-        if (filters.source !== 'all') {
-          articleQuery = articleQuery.eq('source_name', filters.source);
-        }
-
-        if (filters.keyword) {
-          articleQuery = articleQuery.ilike('title', `%${filters.keyword}%`);
-        }
-
-        const { data: articleData, error: articleError } = await articleQuery;
-        if (articleError) throw articleError;
-
-        if (articleData) {
-          allContent = allContent.concat(
-            articleData.map(a => ({
-              ...a,
-              type: 'article' as const,
-            }))
-          );
-        }
+      if (filters.source !== 'all') {
+        articleQuery = articleQuery.eq('source_name', filters.source);
       }
 
-      // Fetch web pages (if filter includes pages)
-      if (contentTypeFilter === 'all' || contentTypeFilter === 'pages') {
-        let pageQuery = supabase
-          .from('web_pages')
-          .select('*')
-          .eq('topic', topic);
+      if (filters.keyword) {
+        articleQuery = articleQuery.ilike('title', `%${filters.keyword}%`);
+      }
 
-        if (filters.source !== 'all') {
-          pageQuery = pageQuery.eq('source_name', filters.source);
-        }
+      const { data: articleData, error: articleError } = await articleQuery;
+      if (articleError) throw articleError;
 
-        if (filters.keyword) {
-          pageQuery = pageQuery.ilike('title', `%${filters.keyword}%`);
-        }
+      if (articleData) {
+        allContent = allContent.concat(
+          articleData.map(a => ({
+            ...a,
+            type: 'article' as const,
+          }))
+        );
+      }
 
-        const { data: pageData, error: pageError } = await pageQuery;
-        if (pageError) throw pageError;
+      // Fetch web pages
+      let pageQuery = supabase
+        .from('web_pages')
+        .select('*')
+        .eq('topic', topic);
 
-        if (pageData) {
-          allContent = allContent.concat(
-            pageData.map(p => ({
-              ...p,
-              type: 'page' as const,
-            }))
-          );
-        }
+      if (filters.source !== 'all') {
+        pageQuery = pageQuery.eq('source_name', filters.source);
+      }
+
+      if (filters.keyword) {
+        pageQuery = pageQuery.ilike('title', `%${filters.keyword}%`);
+      }
+
+      const { data: pageData, error: pageError } = await pageQuery;
+      if (pageError) throw pageError;
+
+      if (pageData) {
+        allContent = allContent.concat(
+          pageData.map(p => ({
+            ...p,
+            type: 'page' as const,
+          }))
+        );
       }
 
       let sortedData = sortContent(allContent, sortBy);
@@ -258,7 +255,13 @@ export default function ResearchPage() {
   const totalArticles = content.filter(c => c.type === 'article').length;
   const totalPages = content.filter(c => c.type === 'page').length;
 
-  // Filter displayed content based on active tab
+  // Filter displayed content based on active tab (for rendering only)
+  const displayedContent = contentTypeFilter === 'all' 
+    ? content 
+    : contentTypeFilter === 'articles' 
+      ? content.filter(c => c.type === 'article')
+      : content.filter(c => c.type === 'page');
+
   const articles = content.filter(c => c.type === 'article') as Article[];
   const pages = content.filter(c => c.type === 'page') as WebPage[];
 
@@ -456,7 +459,7 @@ export default function ResearchPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {content.map((item, index) => (
+            {displayedContent.map((item, index) => (
               <div
                 key={`${item.type}-${item.id}-${index}`}
                 className="card-base card-hover p-6 hover:shadow-lg transition"
