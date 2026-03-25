@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
+import Collapsible from '@/app/components/Collapsible';
+import DarkModeToggle from '@/app/components/DarkModeToggle';
 
 interface Synthesis {
   id: number;
@@ -161,27 +163,32 @@ export default function SynthesisPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 transition-colors">
       <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Research Synthesis</h1>
-          <p className="text-gray-600">AI-generated structured research summaries</p>
+        {/* Header with Gradient & Dark Mode Toggle */}
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 dark:from-purple-400 dark:via-indigo-400 dark:to-blue-400 bg-clip-text text-transparent mb-2">
+              Research Synthesis
+            </h1>
+            <p className="text-gray-600 dark:text-gray-300">AI-generated structured research summaries</p>
+          </div>
+          <DarkModeToggle />
         </div>
 
         {/* Navigation */}
         <div className="mb-6 flex gap-4">
           <a
             href="/research"
-            className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
+            className="px-4 py-2 bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800 dark:from-slate-700 dark:to-slate-800 dark:hover:from-slate-600 dark:hover:to-slate-700 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
           >
             ← Back to Articles
           </a>
         </div>
 
         {/* Topic Input */}
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg p-6 mb-6 transition-colors">
+          <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
             Research Topic
           </label>
           <input
@@ -189,26 +196,26 @@ export default function SynthesisPage() {
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             placeholder="Enter topic (e.g., BPC-157, exercise)"
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
           />
         </div>
 
         {/* Content */}
-        <div className="bg-white rounded-lg shadow p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg p-8 transition-colors">
           {loading && (
             <div className="text-center py-12">
-              <p className="text-gray-500">Loading synthesis...</p>
+              <p className="text-gray-500 dark:text-gray-400 animate-pulse">⏳ Loading synthesis...</p>
             </div>
           )}
 
           {error && !loading && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-800">
-              <p className="font-semibold">No synthesis found</p>
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4 text-amber-900 dark:text-amber-100">
+              <p className="font-semibold">❌ No synthesis found</p>
               <p className="text-sm mt-1">{error}</p>
               <p className="text-sm mt-2">
                 To generate a synthesis, run:
               </p>
-              <code className="block mt-2 bg-yellow-100 p-2 rounded text-xs">
+              <code className="block mt-2 bg-amber-100 dark:bg-amber-900/50 p-2 rounded text-xs text-amber-900 dark:text-amber-100">
                 node scripts/crawl.js --topic "{topic}"<br />
                 node scripts/summarize.js --topic "{topic}"<br />
                 node scripts/synthesize.js --topic "{topic}"
@@ -218,27 +225,101 @@ export default function SynthesisPage() {
 
           {synthesis && !loading && (
             <div>
-              <div className="mb-6 pb-6 border-b border-gray-200">
-                <h2 className="text-3xl font-bold text-gray-900 mb-2">{topic}</h2>
-                <p className="text-sm text-gray-500">
-                  Generated: {new Date(synthesis.generated_at).toLocaleDateString()} at {new Date(synthesis.generated_at).toLocaleTimeString()}
+              <div className="mb-8 pb-6 border-b border-gray-300 dark:border-gray-600">
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-2">{topic}</h2>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  ⏰ Generated: {new Date(synthesis.generated_at).toLocaleDateString()} at {new Date(synthesis.generated_at).toLocaleTimeString()}
                 </p>
               </div>
 
-              {renderOutline(synthesis.outline)}
+              {/* Collapsible Sections */}
+              <div className="space-y-4">
+                {synthesis.outline?.overview && (
+                  <Collapsible title="Overview" icon="📋" defaultOpen={true}>
+                    <div className="text-gray-700 dark:text-gray-300">
+                      {renderNestedObject(synthesis.outline.overview)}
+                    </div>
+                  </Collapsible>
+                )}
+
+                {synthesis.outline?.mechanism && (
+                  <Collapsible title="Mechanism of Action" icon="⚙️" defaultOpen={false}>
+                    <div className="text-gray-700 dark:text-gray-300">
+                      {renderNestedObject(synthesis.outline.mechanism)}
+                    </div>
+                  </Collapsible>
+                )}
+
+                {synthesis.outline?.findings && (
+                  <Collapsible title="Research Findings" icon="🔬" defaultOpen={true}>
+                    <div className="text-gray-700 dark:text-gray-300">
+                      {typeof synthesis.outline.findings === 'object' ? (
+                        <div className="space-y-3">
+                          {Object.entries(synthesis.outline.findings).map(([source, items]: [string, any]) => (
+                            <div key={source}>
+                              <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{source}</h4>
+                              <div className="ml-3">
+                                {renderNestedObject(items)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        renderNestedObject(synthesis.outline.findings)
+                      )}
+                    </div>
+                  </Collapsible>
+                )}
+
+                {synthesis.outline?.benefits && (
+                  <Collapsible title="Potential Benefits" icon="✅" defaultOpen={true}>
+                    <div className="text-gray-700 dark:text-gray-300">
+                      {renderNestedObject(synthesis.outline.benefits)}
+                    </div>
+                  </Collapsible>
+                )}
+
+                {synthesis.outline?.risks && (
+                  <Collapsible title="Risks and Safety" icon="⚠️" defaultOpen={false}>
+                    <div className="text-gray-700 dark:text-gray-300">
+                      {renderNestedObject(synthesis.outline.risks)}
+                    </div>
+                  </Collapsible>
+                )}
+
+                {synthesis.outline?.legal_status && (
+                  <Collapsible title="Legal Status" icon="⚖️" defaultOpen={false}>
+                    <div className="text-gray-700 dark:text-gray-300">
+                      {renderNestedObject(synthesis.outline.legal_status)}
+                    </div>
+                  </Collapsible>
+                )}
+
+                {synthesis.outline?.citations && (
+                  <Collapsible title="Citations" icon="📚" defaultOpen={false}>
+                    <div className="text-gray-700 dark:text-gray-300">
+                      {renderNestedObject(synthesis.outline.citations)}
+                    </div>
+                  </Collapsible>
+                )}
+              </div>
 
               {synthesis.full_text && !synthesis.outline?.raw && (
-                <div className="mt-8 pt-8 border-t border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Full Text</h3>
-                  <p className="whitespace-pre-wrap text-gray-700 text-sm">{synthesis.full_text}</p>
+                <div className="mt-8 pt-8 border-t border-gray-300 dark:border-gray-600">
+                  <Collapsible title="Full Text" icon="📖" defaultOpen={false}>
+                    <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 text-sm">{synthesis.full_text}</p>
+                  </Collapsible>
                 </div>
               )}
             </div>
           )}
 
           {!synthesis && !loading && !error && (
-            <div className="text-center py-12">
-              <p className="text-gray-500">No synthesis available yet.</p>
+            <div className="text-center py-12 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-2xl mb-3">📭 No synthesis available yet</p>
+              <p className="text-gray-600 dark:text-gray-300">
+                Generate a synthesis by running the scripts above
+              </p>
             </div>
           )}
         </div>

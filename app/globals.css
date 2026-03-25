@@ -19,8 +19,59 @@
   }
 }
 
+/* Dark mode support */
+html.dark {
+  color-scheme: dark;
+}
+
+html.dark {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+html.dark body {
+  background: #0f172a;
+  color: #f1f5f9;
+}
+
+/* Gradient utilities */
+.gradient-header {
+  @apply bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600;
+}
+
+.gradient-header-dark {
+  @apply dark:from-blue-700 dark:via-indigo-700 dark:to-purple-700;
+}
+
+.gradient-accent {
+  @apply bg-gradient-to-r from-emerald-500 to-teal-500;
+}
+
+.gradient-accent-dark {
+  @apply dark:from-emerald-600 dark:to-teal-600;
+}
+
+/* Card styling with dark mode */
+.card-base {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg transition-all;
+}
+
+.card-hover {
+  @apply hover:shadow-lg dark:hover:shadow-xl;
+}
+
+/* Text styling */
+.text-header-primary {
+  @apply text-gray-900 dark:text-gray-50;
+}
+
+.text-header-secondary {
+  @apply text-gray-600 dark:text-gray-300;
 }
