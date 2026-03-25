@@ -40,7 +40,7 @@ type ContentTypeFilter = 'all' | 'articles' | 'pages';
 
 export default function ResearchPage() {
   const { addToast } = useToast();
-  const [topic, setTopic] = useState('exercise');
+  const [topic, setTopic] = useState('');
   const [content, setContent] = useState<ContentItem[]>([]);
   const [sortBy, setSortBy] = useState<SortOption>('date-newest');
   const [contentTypeFilter, setContentTypeFilter] = useState<ContentTypeFilter>('all');
@@ -262,7 +262,7 @@ export default function ResearchPage() {
             type="text"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="Enter topic (e.g., BPC-157, exercise)"
+            placeholder="Enter search term here"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
           />
           <SearchHistory onSelect={setTopic} currentTopic={topic} />
@@ -285,43 +285,66 @@ export default function ResearchPage() {
         <div className="card-base p-6 mb-6">
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Content Type</h3>
           <div className="flex gap-2">
-            {(['all', 'articles', 'pages'] as const).map(type => (
-              <button
-                key={type}
-                onClick={() => setContentTypeFilter(type)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                  contentTypeFilter === type
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
-                }`}
-              >
-                {type === 'all' && '📋 All'}
-                {type === 'articles' && `📄 Articles (${articles.length})`}
-                {type === 'pages' && `🌐 Pages (${pages.length})`}
-              </button>
-            ))}
+            {(['all', 'articles', 'pages'] as const).map(type => {
+              const displayCount = type === 'all' ? content.length : (type === 'articles' ? articles.length : pages.length);
+              return (
+                <button
+                  key={type}
+                  onClick={() => setContentTypeFilter(type)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                    contentTypeFilter === type
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  {type === 'all' && `📋 All (${displayCount})`}
+                  {type === 'articles' && `📄 Articles (${displayCount})`}
+                  {type === 'pages' && `🌐 Pages (${displayCount})`}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* Filters & Sort */}
         <div className="card-base p-6 mb-6">
           <div className="flex gap-4 items-end flex-wrap">
-            <div className="flex-1 min-w-64">
+            <div className="flex-1 min-w-64 relative group">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Filter by Source
               </label>
-              <select
-                value={filters.source}
-                onChange={(e) => setFilters({ ...filters, source: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+              <button
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition text-left flex justify-between items-center"
+                onClick={(e) => e.currentTarget.parentElement?.classList.toggle('open')}
               >
-                <option value="all">All Sources</option>
-                {sources.map(source => (
-                  <option key={source} value={source}>
+                <span>{filters.source === 'all' ? 'All Sources' : filters.source}</span>
+                <span className="text-xs">▼</span>
+              </button>
+              <div className="absolute top-full left-0 right-0 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg mt-1 shadow-lg z-10 hidden group-hover:block min-w-64">
+                <button
+                  onClick={() => setFilters({ ...filters, source: 'all' })}
+                  className={`w-full px-3 py-2 text-left text-sm transition ${
+                    filters.source === 'all'
+                      ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                      : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                  }`}
+                >
+                  All Sources
+                </button>
+                {sources.length > 0 && sources.map(source => (
+                  <button
+                    key={source}
+                    onClick={() => setFilters({ ...filters, source })}
+                    className={`w-full px-3 py-2 text-left text-sm transition border-t border-gray-200 dark:border-gray-600 ${
+                      filters.source === source
+                        ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
+                        : 'text-gray-900 dark:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-600'
+                    }`}
+                  >
                     {source}
-                  </option>
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
 
             <div className="flex-1 min-w-64">

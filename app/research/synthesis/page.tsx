@@ -25,7 +25,7 @@ interface Synthesis {
 
 export default function SynthesisPage() {
   const { addToast } = useToast();
-  const [topic, setTopic] = useState('exercise');
+  const [topic, setTopic] = useState('');
   const [synthesis, setSynthesis] = useState<Synthesis | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,7 +112,7 @@ export default function SynthesisPage() {
   const renderNestedObject = (obj: any) => {
     if (Array.isArray(obj)) {
       return (
-        <ul className="list-disc list-inside space-y-1 text-gray-700 ml-2">
+        <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300 ml-2">
           {obj.map((item: any, idx: number) => (
             <li key={idx}>{String(item)}</li>
           ))}
@@ -125,7 +125,7 @@ export default function SynthesisPage() {
         <div className="ml-4 space-y-2 text-sm">
           {Object.entries(obj).map(([key, value]: [string, any]) => (
             <div key={key}>
-              <strong className="text-gray-800">{key}:</strong>
+              <strong className="text-gray-800 dark:text-gray-200">{key}:</strong>
               <div className="ml-3 mt-1">
                 {renderNestedObject(value)}
               </div>
@@ -135,7 +135,7 @@ export default function SynthesisPage() {
       );
     }
 
-    return <span className="text-gray-700">{String(obj)}</span>;
+    return <span className="text-gray-700 dark:text-gray-300">{String(obj)}</span>;
   };
 
   const renderOutline = (outline: any) => {
@@ -145,7 +145,7 @@ export default function SynthesisPage() {
       // Raw text format
       return (
         <div className="prose max-w-none">
-          <p className="whitespace-pre-wrap text-gray-700">{outline.raw}</p>
+          <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{outline.raw}</p>
         </div>
       );
     }
@@ -155,60 +155,60 @@ export default function SynthesisPage() {
       <div className="space-y-6">
         {outline.overview && (
           <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Overview</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">Overview</h2>
             {renderNestedObject(outline.overview)}
           </section>
         )}
 
         {outline.mechanism && (
           <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Mechanism of Action</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">Mechanism of Action</h2>
             {renderNestedObject(outline.mechanism)}
           </section>
         )}
 
         {outline.findings && (
           <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Research Findings</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">Research Findings</h2>
             {typeof outline.findings === 'object' ? (
               <div className="space-y-3">
                 {Object.entries(outline.findings).map(([source, items]: [string, any]) => (
                   <div key={source}>
-                    <h3 className="text-lg font-semibold text-gray-800">{source}</h3>
+                    <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">{source}</h3>
                     {renderNestedObject(items)}
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-700">{outline.findings}</p>
+              <p className="text-gray-700 dark:text-gray-300">{outline.findings}</p>
             )}
           </section>
         )}
 
         {outline.benefits && (
           <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Potential Benefits</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">Potential Benefits</h2>
             {renderNestedObject(outline.benefits)}
           </section>
         )}
 
         {outline.risks && (
           <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Risks and Safety</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">Risks and Safety</h2>
             {renderNestedObject(outline.risks)}
           </section>
         )}
 
         {outline.legal_status && (
           <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Legal Status</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">Legal Status</h2>
             {renderNestedObject(outline.legal_status)}
           </section>
         )}
 
         {outline.citations && (
           <section>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3">Citations</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-gray-100 mb-3">Citations</h2>
             {renderNestedObject(outline.citations)}
           </section>
         )}
@@ -249,7 +249,7 @@ export default function SynthesisPage() {
             type="text"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            placeholder="Enter topic (e.g., BPC-157, exercise)"
+            placeholder="Enter search term here"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
           />
           <SearchHistory onSelect={setTopic} currentTopic={topic} />
@@ -357,7 +357,7 @@ export default function SynthesisPage() {
                         <div className="space-y-3">
                           {Object.entries(synthesis.outline.findings).map(([source, items]: [string, any]) => (
                             <div key={source}>
-                              <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-2">{source}</h4>
+                              <h4 className="font-semibold text-gray-900 dark:text-gray-200 mb-2">{source}</h4>
                               <div className="ml-3">
                                 {renderNestedObject(items)}
                               </div>
@@ -414,7 +414,7 @@ export default function SynthesisPage() {
                       >
                         📋 Copy Full Text
                       </button>
-                      <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 text-sm">{synthesis.full_text}</p>
+                      <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{synthesis.full_text}</p>
                     </div>
                   </Collapsible>
                 </div>

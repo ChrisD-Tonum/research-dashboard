@@ -26,12 +26,6 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       icon: '📊',
       description: 'View AI-generated summaries',
     },
-    {
-      label: 'Settings',
-      href: '/research/settings',
-      icon: '⚙️',
-      description: 'Configure preferences',
-    },
   ];
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
@@ -110,14 +104,14 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
                     onClick={handleNavClick}
                     className={`nav-item flex items-start gap-3 px-4 py-3 rounded-lg transition-all ${
                       active
-                        ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 border-l-2 border-indigo-600'
+                        ? 'bg-indigo-600 text-white shadow-md'
                         : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50'
                     }`}
                   >
                     <span className="text-xl mt-0.5">{item.icon}</span>
                     <div className="flex-1">
                       <div className="font-medium text-sm">{item.label}</div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                      <p className={`text-xs mt-0.5 ${active ? 'text-indigo-100' : 'text-gray-500 dark:text-gray-400'}`}>
                         {item.description}
                       </p>
                     </div>
