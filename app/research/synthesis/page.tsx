@@ -43,6 +43,85 @@ interface Synthesis {
   peptide_data?: PeptideData | null;
 }
 
+interface RawPeptideData {
+  id: number;
+  source: string;
+  title: string;
+  url: string;
+  crawl_date: string;
+  content: string;
+  raw_html?: string;
+  metadata?: Record<string, any>;
+}
+
+interface CrawlStats {
+  source: string;
+  total_pages: number;
+  last_crawl_date: string;
+  success_count: number;
+  error_count: number;
+}
+
+interface ContentModalProps {
+  isOpen: boolean;
+  title: string;
+  content: string;
+  onClose: () => void;
+}
+
+const PEPTIDE_SOURCES = ['GenScript', 'PeptideAtlas', 'APS UNMC', 'PeptidePort', 'Peptides.org'];
+
+// Content Modal Component
+function ContentModal({ isOpen, title, content, onClose }: ContentModalProps) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+        {/* Modal Header */}
+        <div className="flex items-center justify-between bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 px-6 py-4 border-b border-gray-300 dark:border-gray-600">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 truncate">
+            {title}
+          </h3>
+          <button
+            onClick={onClose}
+            className="ml-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition text-2xl leading-none"
+          >
+            ✕
+          </button>
+        </div>
+
+        {/* Modal Content */}
+        <div className="overflow-y-auto flex-1 px-6 py-4">
+          <div className="prose prose-sm dark:prose-invert max-w-none">
+            <pre className="bg-gray-100 dark:bg-gray-900 p-4 rounded text-xs overflow-x-auto whitespace-pre-wrap break-words max-h-96">
+              {content}
+            </pre>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="border-t border-gray-300 dark:border-gray-600 px-6 py-3 bg-gray-50 dark:bg-gray-700 flex justify-end gap-2">
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText(content);
+            }}
+            className="px-4 py-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium transition"
+          >
+            📋 Copy
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 py-2 bg-gray-300 dark:bg-gray-600 hover:bg-gray-400 dark:hover:bg-gray-500 text-gray-900 dark:text-gray-100 rounded-lg text-sm font-medium transition"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SynthesisContent() {
   const { addToast } = useToast();
   const searchParams = useSearchParams();
@@ -52,6 +131,23 @@ function SynthesisContent() {
   const [error, setError] = useState<string | null>(null);
   const [topicDropdownOpen, setTopicDropdownOpen] = useState(false);
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
+
+  // Raw Peptide Data State
+  const [activeTab, setActiveTab] = useState<'synthesis' | 'raw'>('synthesis');
+  const [rawPeptideData, setRawPeptideData] = useState<RawPeptideData[]>([]);
+  const [selectedSource, setSelectedSource] = useState<string>('All Sources');
+  const [rawDataLoading, setRawDataLoading] = useState(false);
+  const [crawlStats, setCrawlStats] = useState<CrawlStats[]>([]);
+  const [modalState, setModalState] = useState<{
+    isOpen: boolean;
+    title: string;
+    content: string;
+  }>({
+    isOpen: false,
+    title: '',
+    content: '',
+  });
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
 
   // Initialize topic from URL query param on mount
   useEffect(() => {
@@ -110,11 +206,15 @@ function SynthesisContent() {
   useEffect(() => {
     if (topic.trim()) {
       fetchSynthesis();
+      if (activeTab === 'raw') {
+        fetchRawPeptideData();
+      }
     } else {
       setSynthesis(null);
+      setRawPeptideData([]);
       setError(null);
     }
-  }, [topic]);
+  }, [topic, activeTab]);
 
   async function fetchSynthesis() {
     if (!topic.trim()) return;
@@ -174,6 +274,48 @@ function SynthesisContent() {
     }
   }
 
+  async function fetchRawPeptideData() {
+    if (!topic.trim()) return;
+
+    setRawDataLoading(true);
+    try {
+      // Fetch raw peptide data
+      let query = supabase
+        .from('peptide_raw_data')
+        .select('*')
+        .order('crawl_date', { ascending: false });
+
+      if (selectedSource !== 'All Sources') {
+        query = query.eq('source', selectedSource);
+      }
+
+      const { data: rawData, error: rawErr } = await query;
+
+      if (rawErr) {
+        console.error('Error fetching raw peptide data:', rawErr);
+        throw rawErr;
+      }
+
+      setRawPeptideData(rawData || []);
+
+      // Fetch crawl statistics
+      const { data: stats, error: statsErr } = await supabase
+        .from('peptide_crawl_stats')
+        .select('*');
+
+      if (statsErr) {
+        console.warn('Could not fetch crawl stats:', statsErr);
+      } else {
+        setCrawlStats(stats || []);
+      }
+    } catch (error) {
+      console.error('Error fetching raw data:', error);
+      addToast('Failed to load raw peptide data', 'error');
+    } finally {
+      setRawDataLoading(false);
+    }
+  }
+
   async function copyToClipboard(text: string, label: string = 'Text') {
     try {
       await navigator.clipboard.writeText(text);
@@ -215,6 +357,16 @@ function SynthesisContent() {
       console.error('Export error:', error);
       addToast('Failed to export CSV', 'error');
     }
+  }
+
+  function toggleRowExpansion(id: number) {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedRows(newExpanded);
   }
 
   const renderNestedObject = (obj: any) => {
@@ -324,6 +476,12 @@ function SynthesisContent() {
     );
   };
 
+  const filteredRawData = selectedSource === 'All Sources' 
+    ? rawPeptideData 
+    : rawPeptideData.filter(item => item.source === selectedSource);
+
+  const sourceStats = crawlStats.find(s => s.source === (selectedSource === 'All Sources' ? undefined : selectedSource));
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-8 transition-colors">
       <div className="max-w-4xl mx-auto">
@@ -331,9 +489,9 @@ function SynthesisContent() {
         <div className="mb-8 flex justify-between items-start pt-10 md:pt-0">
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 dark:from-purple-400 dark:via-indigo-400 dark:to-blue-400 bg-clip-text text-transparent mb-2">
-              Synthesis
+              Research Dashboard
             </h1>
-            <p className="text-gray-600 dark:text-gray-300">AI-generated structured research summaries</p>
+            <p className="text-gray-600 dark:text-gray-300">AI-generated research summaries & raw data</p>
           </div>
           <DarkModeToggle />
         </div>
@@ -399,331 +557,551 @@ function SynthesisContent() {
           <SearchHistory onSelect={setTopic} currentTopic={topic} />
         </div>
 
+        {/* Tab Navigation */}
+        <div className="mb-6 bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg overflow-hidden">
+          <div className="flex border-b border-gray-300 dark:border-gray-600">
+            <button
+              onClick={() => setActiveTab('synthesis')}
+              className={`flex-1 px-6 py-4 text-center font-medium transition ${
+                activeTab === 'synthesis'
+                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 text-indigo-600 dark:text-indigo-300 border-b-2 border-indigo-600 dark:border-indigo-400'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              📋 Synthesis
+            </button>
+            <button
+              onClick={() => setActiveTab('raw')}
+              className={`flex-1 px-6 py-4 text-center font-medium transition ${
+                activeTab === 'raw'
+                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 text-indigo-600 dark:text-indigo-300 border-b-2 border-indigo-600 dark:border-indigo-400'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              🧬 Raw Peptide Data
+            </button>
+          </div>
+        </div>
+
         {/* Content */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md dark:shadow-lg p-8 transition-colors">
-          {loading && (
-            <div className="text-center py-12">
-              <LoadingSpinner size="md" text="Loading synthesis..." />
-            </div>
-          )}
+          {/* Synthesis Tab */}
+          {activeTab === 'synthesis' && (
+            <>
+              {loading && (
+                <div className="text-center py-12">
+                  <LoadingSpinner size="md" text="Loading synthesis..." />
+                </div>
+              )}
 
-          {error && !loading && (
-            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4 text-amber-900 dark:text-amber-100">
-              <p className="font-semibold">❌ No synthesis found</p>
-              <p className="text-sm mt-1">{error}</p>
-              <p className="text-sm mt-2">
-                To generate a synthesis, run:
-              </p>
-              <code className="block mt-2 bg-amber-100 dark:bg-amber-900/50 p-2 rounded text-xs text-amber-900 dark:text-amber-100">
-                node scripts/crawl.js --topic "{topic}"<br />
-                node scripts/summarize.js --topic "{topic}"<br />
-                node scripts/synthesize.js --topic "{topic}"
-              </code>
-            </div>
-          )}
+              {error && !loading && (
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 rounded-lg p-4 text-amber-900 dark:text-amber-100">
+                  <p className="font-semibold">❌ No synthesis found</p>
+                  <p className="text-sm mt-1">{error}</p>
+                  <p className="text-sm mt-2">
+                    To generate a synthesis, run:
+                  </p>
+                  <code className="block mt-2 bg-amber-100 dark:bg-amber-900/50 p-2 rounded text-xs text-amber-900 dark:text-amber-100">
+                    node scripts/crawl.js --topic "{topic}"<br />
+                    node scripts/summarize.js --topic "{topic}"<br />
+                    node scripts/synthesize.js --topic "{topic}"
+                  </code>
+                </div>
+              )}
 
-          {synthesis && !loading && (
-            <div>
-              <div className="mb-8 pb-6 border-b border-gray-300 dark:border-gray-600">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
-                  <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{topic}</h2>
-                  {/* Export Buttons */}
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      onClick={handleExportPDF}
-                      className="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
-                      title="Export synthesis as PDF"
-                    >
-                      📄 PDF
-                    </button>
-                    <button
-                      onClick={handleExportJSON}
-                      className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
-                      title="Export synthesis as JSON"
-                    >
-                      📋 JSON
-                    </button>
-                    <button
-                      onClick={handleExportCSV}
-                      className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
-                      title="Export synthesis as CSV"
-                    >
-                      📊 CSV
-                    </button>
+              {synthesis && !loading && (
+                <div>
+                  <div className="mb-8 pb-6 border-b border-gray-300 dark:border-gray-600">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-4">
+                      <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">{topic}</h2>
+                      {/* Export Buttons */}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          onClick={handleExportPDF}
+                          className="px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-500 hover:from-rose-600 hover:to-pink-600 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
+                          title="Export synthesis as PDF"
+                        >
+                          📄 PDF
+                        </button>
+                        <button
+                          onClick={handleExportJSON}
+                          className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
+                          title="Export synthesis as JSON"
+                        >
+                          📋 JSON
+                        </button>
+                        <button
+                          onClick={handleExportCSV}
+                          className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg text-sm font-medium transition shadow-md hover:shadow-lg"
+                          title="Export synthesis as CSV"
+                        >
+                          📊 CSV
+                        </button>
+                      </div>
+                    </div>
+                    
+                    {/* Metadata Badges */}
+                    <div className="flex flex-wrap gap-2">
+                      <Badge 
+                        label={new Date(synthesis.generated_at).toLocaleDateString()} 
+                        variant="date" 
+                        icon="📅"
+                        size="sm"
+                      />
+                      <Badge 
+                        label={new Date(synthesis.generated_at).toLocaleTimeString()} 
+                        variant="default" 
+                        icon="⏰"
+                        size="sm"
+                      />
+                      <Badge 
+                        label={synthesis.format || 'Structured'} 
+                        variant="tag" 
+                        icon="📋"
+                        size="sm"
+                      />
+                    </div>
                   </div>
-                </div>
-                
-                {/* Metadata Badges */}
-                <div className="flex flex-wrap gap-2">
-                  <Badge 
-                    label={new Date(synthesis.generated_at).toLocaleDateString()} 
-                    variant="date" 
-                    icon="📅"
-                    size="sm"
-                  />
-                  <Badge 
-                    label={new Date(synthesis.generated_at).toLocaleTimeString()} 
-                    variant="default" 
-                    icon="⏰"
-                    size="sm"
-                  />
-                  <Badge 
-                    label={synthesis.format || 'Structured'} 
-                    variant="tag" 
-                    icon="📋"
-                    size="sm"
-                  />
-                </div>
-              </div>
 
-              {/* Collapsible Sections */}
-              <div className="space-y-4">
-                {synthesis.outline?.overview && (
-                  <Collapsible title="Overview" icon="📋" defaultOpen={true}>
-                    <div className="text-gray-700 dark:text-gray-300">
-                      {renderNestedObject(synthesis.outline.overview)}
-                    </div>
-                  </Collapsible>
-                )}
-
-                {synthesis.outline?.mechanism && (
-                  <Collapsible title="Mechanism of Action" icon="⚙️" defaultOpen={false}>
-                    <div className="text-gray-700 dark:text-gray-300">
-                      {renderNestedObject(synthesis.outline.mechanism)}
-                    </div>
-                  </Collapsible>
-                )}
-
-                {synthesis.outline?.findings && (
-                  <Collapsible title="Research Findings" icon="🔬" defaultOpen={true}>
-                    <div className="text-gray-700 dark:text-gray-300">
-                      {typeof synthesis.outline.findings === 'object' ? (
-                        <div className="space-y-3">
-                          {Object.entries(synthesis.outline.findings).map(([source, items]: [string, any]) => (
-                            <div key={source}>
-                              <h4 className="font-semibold text-gray-900 dark:text-gray-200 mb-2">{source}</h4>
-                              <div className="ml-3">
-                                {renderNestedObject(items)}
-                              </div>
-                            </div>
-                          ))}
+                  {/* Collapsible Sections */}
+                  <div className="space-y-4">
+                    {synthesis.outline?.overview && (
+                      <Collapsible title="Overview" icon="📋" defaultOpen={true}>
+                        <div className="text-gray-700 dark:text-gray-300">
+                          {renderNestedObject(synthesis.outline.overview)}
                         </div>
-                      ) : (
-                        renderNestedObject(synthesis.outline.findings)
-                      )}
-                    </div>
-                  </Collapsible>
-                )}
+                      </Collapsible>
+                    )}
 
-                {synthesis.outline?.benefits && (
-                  <Collapsible title="Potential Benefits" icon="✅" defaultOpen={true}>
-                    <div className="text-gray-700 dark:text-gray-300">
-                      {renderNestedObject(synthesis.outline.benefits)}
-                    </div>
-                  </Collapsible>
-                )}
+                    {synthesis.outline?.mechanism && (
+                      <Collapsible title="Mechanism of Action" icon="⚙️" defaultOpen={false}>
+                        <div className="text-gray-700 dark:text-gray-300">
+                          {renderNestedObject(synthesis.outline.mechanism)}
+                        </div>
+                      </Collapsible>
+                    )}
 
-                {synthesis.outline?.risks && (
-                  <Collapsible title="Risks and Safety" icon="⚠️" defaultOpen={false}>
-                    <div className="text-gray-700 dark:text-gray-300">
-                      {renderNestedObject(synthesis.outline.risks)}
-                    </div>
-                  </Collapsible>
-                )}
-
-                {synthesis.outline?.legal_status && (
-                  <Collapsible title="Legal Status" icon="⚖️" defaultOpen={false}>
-                    <div className="text-gray-700 dark:text-gray-300">
-                      {renderNestedObject(synthesis.outline.legal_status)}
-                    </div>
-                  </Collapsible>
-                )}
-
-                {synthesis.outline?.citations && (
-                  <Collapsible title="Citations" icon="📚" defaultOpen={false}>
-                    <div className="text-gray-700 dark:text-gray-300">
-                      {renderNestedObject(synthesis.outline.citations)}
-                    </div>
-                  </Collapsible>
-                )}
-
-                {/* Peptide Data Sections */}
-                {synthesis.peptide_data && (
-                  <>
-                    {/* Chemical Properties */}
-                    {(synthesis.peptide_data.molecular_weight || 
-                      synthesis.peptide_data.molecular_formula || 
-                      synthesis.peptide_data.sequence || 
-                      synthesis.peptide_data.purity !== undefined) && (
-                      <Collapsible 
-                        title="Chemical Properties" 
-                        icon="🧬" 
-                        defaultOpen={true}
-                      >
-                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-lg space-y-3 text-gray-700 dark:text-gray-300">
-                          {synthesis.peptide_data.molecular_weight !== undefined && (
-                            <div className="flex justify-between items-start">
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">Molecular Weight:</span>
-                              <span>{synthesis.peptide_data.molecular_weight.toFixed(2)} g/mol</span>
+                    {synthesis.outline?.findings && (
+                      <Collapsible title="Research Findings" icon="🔬" defaultOpen={true}>
+                        <div className="text-gray-700 dark:text-gray-300">
+                          {typeof synthesis.outline.findings === 'object' ? (
+                            <div className="space-y-3">
+                              {Object.entries(synthesis.outline.findings).map(([source, items]: [string, any]) => (
+                                <div key={source}>
+                                  <h4 className="font-semibold text-gray-900 dark:text-gray-200 mb-2">{source}</h4>
+                                  <div className="ml-3">
+                                    {renderNestedObject(items)}
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          )}
-                          {synthesis.peptide_data.molecular_formula && (
-                            <div className="flex justify-between items-start">
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">Molecular Formula:</span>
-                              <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-sm">{synthesis.peptide_data.molecular_formula}</code>
-                            </div>
-                          )}
-                          {synthesis.peptide_data.sequence && (
-                            <div>
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">Sequence:</span>
-                              <div className="mt-2 bg-gray-200 dark:bg-gray-700 p-3 rounded font-mono text-sm break-all max-h-32 overflow-y-auto">
-                                {synthesis.peptide_data.sequence}
-                              </div>
-                            </div>
-                          )}
-                          {synthesis.peptide_data.purity !== undefined && (
-                            <div className="flex justify-between items-start">
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">Purity:</span>
-                              <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-100 px-3 py-1 rounded-full">
-                                {(synthesis.peptide_data.purity * 100).toFixed(2)}%
-                              </span>
-                            </div>
+                          ) : (
+                            renderNestedObject(synthesis.outline.findings)
                           )}
                         </div>
                       </Collapsible>
                     )}
 
-                    {/* Structural Data */}
-                    {(synthesis.peptide_data.pdb_ids?.length || 
-                      synthesis.peptide_data.coordinates_3d || 
-                      synthesis.peptide_data.experimental_methods?.length) && (
-                      <Collapsible 
-                        title="Structural Data" 
-                        icon="🔬" 
-                        defaultOpen={false}
-                      >
-                        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-4 rounded-lg space-y-3 text-gray-700 dark:text-gray-300">
-                          {synthesis.peptide_data.pdb_ids && synthesis.peptide_data.pdb_ids.length > 0 && (
-                            <div>
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">PDB IDs:</span>
-                              <div className="mt-2 space-y-2">
-                                {synthesis.peptide_data.pdb_ids.map((pdbId, idx) => (
-                                  <a
-                                    key={idx}
-                                    href={`https://www.rcsb.org/structure/${pdbId}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-block bg-blue-200 dark:bg-blue-900/50 hover:bg-blue-300 dark:hover:bg-blue-900/70 text-blue-900 dark:text-blue-100 px-3 py-1 rounded text-sm font-mono transition"
-                                  >
-                                    {pdbId} ↗
-                                  </a>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-                          {synthesis.peptide_data.experimental_methods && 
-                           synthesis.peptide_data.experimental_methods.length > 0 && (
-                            <div>
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">Experimental Methods:</span>
-                              <ul className="mt-2 list-disc list-inside space-y-1">
-                                {synthesis.peptide_data.experimental_methods.map((method, idx) => (
-                                  <li key={idx}>{method}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                          {synthesis.peptide_data.coordinates_3d && (
-                            <div>
-                              <span className="font-semibold text-gray-900 dark:text-gray-100">3D Coordinates Available:</span>
-                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                                ✓ Structure coordinates stored in database
-                              </p>
-                            </div>
-                          )}
+                    {synthesis.outline?.benefits && (
+                      <Collapsible title="Potential Benefits" icon="✅" defaultOpen={true}>
+                        <div className="text-gray-700 dark:text-gray-300">
+                          {renderNestedObject(synthesis.outline.benefits)}
                         </div>
                       </Collapsible>
                     )}
 
-                    {/* Suppliers */}
-                    {synthesis.peptide_data.suppliers && synthesis.peptide_data.suppliers.length > 0 && (
-                      <Collapsible 
-                        title="Suppliers" 
-                        icon="🛒" 
-                        defaultOpen={false}
-                      >
-                        <div className="space-y-3">
-                          {synthesis.peptide_data.suppliers.map((supplier, idx) => (
-                            <div 
-                              key={idx}
-                              className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800"
-                            >
-                              <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-                                  {supplier.url ? (
-                                    <a
-                                      href={supplier.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-orange-600 dark:text-orange-400 hover:underline"
-                                    >
-                                      {supplier.name} ↗
-                                    </a>
-                                  ) : (
-                                    supplier.name
-                                  )}
-                                </h4>
-                                {supplier.availability && (
-                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                                    supplier.availability.toLowerCase() === 'in stock'
-                                      ? 'bg-green-200 dark:bg-green-900/30 text-green-800 dark:text-green-100'
-                                      : 'bg-yellow-200 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-100'
-                                  }`}>
-                                    {supplier.availability}
+                    {synthesis.outline?.risks && (
+                      <Collapsible title="Risks and Safety" icon="⚠️" defaultOpen={false}>
+                        <div className="text-gray-700 dark:text-gray-300">
+                          {renderNestedObject(synthesis.outline.risks)}
+                        </div>
+                      </Collapsible>
+                    )}
+
+                    {synthesis.outline?.legal_status && (
+                      <Collapsible title="Legal Status" icon="⚖️" defaultOpen={false}>
+                        <div className="text-gray-700 dark:text-gray-300">
+                          {renderNestedObject(synthesis.outline.legal_status)}
+                        </div>
+                      </Collapsible>
+                    )}
+
+                    {synthesis.outline?.citations && (
+                      <Collapsible title="Citations" icon="📚" defaultOpen={false}>
+                        <div className="text-gray-700 dark:text-gray-300">
+                          {renderNestedObject(synthesis.outline.citations)}
+                        </div>
+                      </Collapsible>
+                    )}
+
+                    {/* Peptide Data Sections */}
+                    {synthesis.peptide_data && (
+                      <>
+                        {/* Chemical Properties */}
+                        {(synthesis.peptide_data.molecular_weight || 
+                          synthesis.peptide_data.molecular_formula || 
+                          synthesis.peptide_data.sequence || 
+                          synthesis.peptide_data.purity !== undefined) && (
+                          <Collapsible 
+                            title="Chemical Properties" 
+                            icon="🧬" 
+                            defaultOpen={true}
+                          >
+                            <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-lg space-y-3 text-gray-700 dark:text-gray-300">
+                              {synthesis.peptide_data.molecular_weight !== undefined && (
+                                <div className="flex justify-between items-start">
+                                  <span className="font-semibold text-gray-900 dark:text-gray-100">Molecular Weight:</span>
+                                  <span>{synthesis.peptide_data.molecular_weight.toFixed(2)} g/mol</span>
+                                </div>
+                              )}
+                              {synthesis.peptide_data.molecular_formula && (
+                                <div className="flex justify-between items-start">
+                                  <span className="font-semibold text-gray-900 dark:text-gray-100">Molecular Formula:</span>
+                                  <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-sm">{synthesis.peptide_data.molecular_formula}</code>
+                                </div>
+                              )}
+                              {synthesis.peptide_data.sequence && (
+                                <div>
+                                  <span className="font-semibold text-gray-900 dark:text-gray-100">Sequence:</span>
+                                  <div className="mt-2 bg-gray-200 dark:bg-gray-700 p-3 rounded font-mono text-sm break-all max-h-32 overflow-y-auto">
+                                    {synthesis.peptide_data.sequence}
+                                  </div>
+                                </div>
+                              )}
+                              {synthesis.peptide_data.purity !== undefined && (
+                                <div className="flex justify-between items-start">
+                                  <span className="font-semibold text-gray-900 dark:text-gray-100">Purity:</span>
+                                  <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-100 px-3 py-1 rounded-full">
+                                    {(synthesis.peptide_data.purity * 100).toFixed(2)}%
                                   </span>
-                                )}
-                              </div>
-                              {supplier.price && (
-                                <p className="text-sm text-gray-700 dark:text-gray-300">
-                                  <span className="font-medium">Price:</span> {supplier.price}
-                                </p>
+                                </div>
                               )}
                             </div>
-                          ))}
+                          </Collapsible>
+                        )}
+
+                        {/* Structural Data */}
+                        {(synthesis.peptide_data.pdb_ids?.length || 
+                          synthesis.peptide_data.coordinates_3d || 
+                          synthesis.peptide_data.experimental_methods?.length) && (
+                          <Collapsible 
+                            title="Structural Data" 
+                            icon="🔬" 
+                            defaultOpen={false}
+                          >
+                            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-4 rounded-lg space-y-3 text-gray-700 dark:text-gray-300">
+                              {synthesis.peptide_data.pdb_ids && synthesis.peptide_data.pdb_ids.length > 0 && (
+                                <div>
+                                  <span className="font-semibold text-gray-900 dark:text-gray-100">PDB IDs:</span>
+                                  <div className="mt-2 space-y-2">
+                                    {synthesis.peptide_data.pdb_ids.map((pdbId, idx) => (
+                                      <a
+                                        key={idx}
+                                        href={`https://www.rcsb.org/structure/${pdbId}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="inline-block bg-blue-200 dark:bg-blue-900/50 hover:bg-blue-300 dark:hover:bg-blue-900/70 text-blue-900 dark:text-blue-100 px-3 py-1 rounded text-sm font-mono transition"
+                                      >
+                                        {pdbId} ↗
+                                      </a>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              {synthesis.peptide_data.experimental_methods && 
+                               synthesis.peptide_data.experimental_methods.length > 0 && (
+                                <div>
+                                  <span className="font-semibold text-gray-900 dark:text-gray-100">Experimental Methods:</span>
+                                  <ul className="mt-2 list-disc list-inside space-y-1">
+                                    {synthesis.peptide_data.experimental_methods.map((method, idx) => (
+                                      <li key={idx}>{method}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {synthesis.peptide_data.coordinates_3d && (
+                                <div>
+                                  <span className="font-semibold text-gray-900 dark:text-gray-100">3D Coordinates Available:</span>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                    ✓ Structure coordinates stored in database
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          </Collapsible>
+                        )}
+
+                        {/* Suppliers */}
+                        {synthesis.peptide_data.suppliers && synthesis.peptide_data.suppliers.length > 0 && (
+                          <Collapsible 
+                            title="Suppliers" 
+                            icon="🛒" 
+                            defaultOpen={false}
+                          >
+                            <div className="space-y-3">
+                              {synthesis.peptide_data.suppliers.map((supplier, idx) => (
+                                <div 
+                                  key={idx}
+                                  className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800"
+                                >
+                                  <div className="flex justify-between items-start mb-2">
+                                    <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                                      {supplier.url ? (
+                                        <a
+                                          href={supplier.url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-orange-600 dark:text-orange-400 hover:underline"
+                                        >
+                                          {supplier.name} ↗
+                                        </a>
+                                      ) : (
+                                        supplier.name
+                                      )}
+                                    </h4>
+                                    {supplier.availability && (
+                                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                        supplier.availability.toLowerCase() === 'in stock'
+                                          ? 'bg-green-200 dark:bg-green-900/30 text-green-800 dark:text-green-100'
+                                          : 'bg-yellow-200 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-100'
+                                      }`}>
+                                        {supplier.availability}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {supplier.price && (
+                                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                                      <span className="font-medium">Price:</span> {supplier.price}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </Collapsible>
+                        )}
+                      </>
+                    )}
+                  </div>
+
+                  {synthesis.full_text && !synthesis.outline?.raw && (
+                    <div className="mt-8 pt-8 border-t border-gray-300 dark:border-gray-600">
+                      <Collapsible title="Full Text" icon="📖" defaultOpen={false}>
+                        <div className="space-y-3">
+                          <button
+                            onClick={() => copyToClipboard(synthesis.full_text, 'Full text')}
+                            className="mb-4 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium transition-colors"
+                          >
+                            📋 Copy Full Text
+                          </button>
+                          <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{synthesis.full_text}</p>
                         </div>
                       </Collapsible>
-                    )}
-                  </>
-                )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!synthesis && !loading && !error && (
+                <div className="text-center py-12 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-2xl mb-3">📭 No synthesis available yet</p>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    Generate a synthesis by running the scripts above
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Raw Peptide Data Tab */}
+          {activeTab === 'raw' && (
+            <>
+              {/* Source Filter */}
+              <div className="mb-6 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 p-4 rounded-lg border border-gray-300 dark:border-gray-600">
+                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+                  Filter by Source
+                </label>
+                <select
+                  value={selectedSource}
+                  onChange={(e) => setSelectedSource(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                >
+                  <option>All Sources</option>
+                  {PEPTIDE_SOURCES.map(source => (
+                    <option key={source} value={source}>
+                      {source}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              {synthesis.full_text && !synthesis.outline?.raw && (
-                <div className="mt-8 pt-8 border-t border-gray-300 dark:border-gray-600">
-                  <Collapsible title="Full Text" icon="📖" defaultOpen={false}>
-                    <div className="space-y-3">
-                      <button
-                        onClick={() => copyToClipboard(synthesis.full_text, 'Full text')}
-                        className="mb-4 px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        📋 Copy Full Text
-                      </button>
-                      <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300 text-sm leading-relaxed">{synthesis.full_text}</p>
+              {/* Crawl Statistics */}
+              {crawlStats && crawlStats.length > 0 && (
+                <div className="mb-6">
+                  <Collapsible title="Crawl Statistics" icon="📊" defaultOpen={true}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {(selectedSource === 'All Sources' ? crawlStats : [sourceStats].filter(Boolean)).map(stat => (
+                        <div 
+                          key={stat.source}
+                          className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 p-4 rounded-lg border border-indigo-200 dark:border-indigo-800"
+                        >
+                          <h4 className="font-semibold text-gray-900 dark:text-gray-100 mb-3">{stat.source}</h4>
+                          <div className="space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                            <div className="flex justify-between">
+                              <span>Total Pages:</span>
+                              <span className="font-medium">{stat.total_pages}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Successful:</span>
+                              <span className="font-medium text-green-600 dark:text-green-400">{stat.success_count}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span>Errors:</span>
+                              <span className="font-medium text-red-600 dark:text-red-400">{stat.error_count}</span>
+                            </div>
+                            <div className="flex justify-between border-t border-indigo-200 dark:border-indigo-700 pt-2 mt-2">
+                              <span>Last Crawl:</span>
+                              <span className="font-medium">
+                                {new Date(stat.last_crawl_date).toLocaleDateString()}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </Collapsible>
                 </div>
               )}
-            </div>
-          )}
 
-          {!synthesis && !loading && !error && (
-            <div className="text-center py-12 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-              <p className="text-2xl mb-3">📭 No synthesis available yet</p>
-              <p className="text-gray-600 dark:text-gray-300">
-                Generate a synthesis by running the scripts above
-              </p>
-            </div>
+              {/* Raw Data Loading State */}
+              {rawDataLoading && (
+                <div className="text-center py-12">
+                  <LoadingSpinner size="md" text="Loading raw peptide data..." />
+                </div>
+              )}
+
+              {/* Raw Data List */}
+              {!rawDataLoading && filteredRawData.length > 0 && (
+                <div>
+                  <div className="mb-4">
+                    <Badge 
+                      label={`${filteredRawData.length} pages found`}
+                      variant="tag"
+                      icon="📄"
+                      size="sm"
+                    />
+                  </div>
+
+                  <div className="space-y-3">
+                    {filteredRawData.map(item => (
+                      <div 
+                        key={item.id}
+                        className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden transition-all hover:shadow-md dark:hover:shadow-lg"
+                      >
+                        {/* Row Header */}
+                        <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-600 p-4">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-semibold text-gray-900 dark:text-gray-100 truncate mb-2">
+                                {item.title}
+                              </h4>
+                              <div className="flex flex-col gap-1 text-sm">
+                                <a
+                                  href={item.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 dark:text-blue-400 hover:underline truncate"
+                                >
+                                  {item.url} ↗
+                                </a>
+                                <div className="flex flex-wrap gap-2">
+                                  <Badge 
+                                    label={item.source}
+                                    variant="tag"
+                                    icon="🏷️"
+                                    size="xs"
+                                  />
+                                  <Badge 
+                                    label={new Date(item.crawl_date).toLocaleDateString()}
+                                    variant="date"
+                                    icon="📅"
+                                    size="xs"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Action Buttons */}
+                            <div className="flex gap-2 flex-shrink-0">
+                              <button
+                                onClick={() => setModalState({
+                                  isOpen: true,
+                                  title: item.title,
+                                  content: item.content || item.raw_html || 'No content available'
+                                })}
+                                className="px-3 py-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg text-sm font-medium transition whitespace-nowrap"
+                                title="View full content"
+                              >
+                                👁️ View
+                              </button>
+                              <button
+                                onClick={() => toggleRowExpansion(item.id)}
+                                className={`px-3 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${
+                                  expandedRows.has(item.id)
+                                    ? 'bg-gray-300 dark:bg-gray-500 text-gray-900 dark:text-gray-100'
+                                    : 'bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 text-gray-900 dark:text-gray-100'
+                                }`}
+                                title="Expand/collapse preview"
+                              >
+                                {expandedRows.has(item.id) ? '▲ Hide' : '▼ Show'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Expandable Preview */}
+                        {expandedRows.has(item.id) && (
+                          <div className="bg-white dark:bg-gray-800 border-t border-gray-300 dark:border-gray-600 p-4">
+                            <div className="max-h-64 overflow-y-auto">
+                              <div className="prose prose-sm dark:prose-invert max-w-none">
+                                <pre className="bg-gray-100 dark:bg-gray-900 p-3 rounded text-xs overflow-x-auto whitespace-pre-wrap break-words">
+                                  {(item.content || item.raw_html || 'No content available').substring(0, 500)}
+                                  {(item.content || item.raw_html || '').length > 500 && '...'}
+                                </pre>
+                              </div>
+                            </div>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                              {item.metadata && Object.keys(item.metadata).length > 0 && (
+                                <>Metadata: {Object.keys(item.metadata).join(', ')}</>
+                              )}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!rawDataLoading && filteredRawData.length === 0 && (
+                <div className="text-center py-12 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                  <p className="text-2xl mb-3">📭 No raw peptide data available</p>
+                  <p className="text-gray-600 dark:text-gray-300">
+                    {topic ? `No crawled pages found for "${topic}" or selected source` : 'Select a topic to view raw peptide data'}
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
+
+      {/* Content Modal */}
+      <ContentModal 
+        isOpen={modalState.isOpen}
+        title={modalState.title}
+        content={modalState.content}
+        onClose={() => setModalState({ ...modalState, isOpen: false })}
+      />
     </div>
   );
 }
