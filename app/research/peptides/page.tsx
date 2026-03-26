@@ -385,11 +385,10 @@ export default function PeptidesResearchPage() {
                   {selectedPage.page_url}
                 </p>
                 <div className="flex flex-wrap gap-2 items-center">
-                  <Badge label={selectedPage.source_name} color="blue" />
+                  <Badge label={selectedPage.source_name} />
                   {selectedPage.metadata?.statusCode && (
                     <Badge 
                       label={`HTTP ${selectedPage.metadata.statusCode}`}
-                      color={selectedPage.metadata.statusCode === 200 ? 'green' : 'yellow'}
                     />
                   )}
                   <span className="text-sm text-gray-500 dark:text-gray-500">
