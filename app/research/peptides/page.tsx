@@ -349,11 +349,10 @@ export default function PeptidesResearchPage() {
                           {truncateText(page.raw_markdown || page.raw_html, 200)}
                         </p>
                         <div className="flex flex-wrap gap-2 items-center">
-                          <Badge label={page.source_name} color="blue" />
+                          <Badge label={page.source_name} />
                           {page.metadata?.statusCode && (
                             <Badge 
                               label={`HTTP ${page.metadata.statusCode}`}
-                              color={page.metadata.statusCode === 200 ? 'green' : 'yellow'}
                             />
                           )}
                           <span className="text-xs text-gray-500 dark:text-gray-500">
