@@ -15,6 +15,24 @@ import {
   exportSynthesisToCSV,
 } from '@/lib/synthesisExport';
 
+interface PeptideData {
+  id?: number;
+  synthesis_id?: number;
+  molecular_weight?: number;
+  molecular_formula?: string;
+  sequence?: string;
+  purity?: number;
+  pdb_ids?: string[];
+  coordinates_3d?: any;
+  experimental_methods?: string[];
+  suppliers?: Array<{
+    name: string;
+    url?: string;
+    price?: string;
+    availability?: string;
+  }>;
+}
+
 interface Synthesis {
   id: number;
   topic: string;
@@ -22,6 +40,7 @@ interface Synthesis {
   outline: any;
   full_text: string;
   generated_at: string;
+  peptide_data?: PeptideData | null;
 }
 
 function SynthesisContent() {
@@ -116,8 +135,32 @@ function SynthesisContent() {
       }
 
       if (data && data.length > 0) {
-        console.log('Synthesis data:', JSON.stringify(data[0], null, 2));
-        setSynthesis(data[0]);
+        const synthesisData = data[0];
+        console.log('Synthesis data:', JSON.stringify(synthesisData, null, 2));
+        
+        // Fetch peptide data if it exists
+        let peptideData = null;
+        try {
+          const { data: peptideRows, error: peptideErr } = await supabase
+            .from('peptide_data')
+            .select('*')
+            .eq('synthesis_id', synthesisData.id)
+            .limit(1);
+
+          if (peptideErr) {
+            console.warn('Could not fetch peptide data:', peptideErr);
+          } else if (peptideRows && peptideRows.length > 0) {
+            peptideData = peptideRows[0];
+            console.log('Peptide data found:', JSON.stringify(peptideData, null, 2));
+          }
+        } catch (peptideError) {
+          console.warn('Error fetching peptide data:', peptideError);
+        }
+
+        setSynthesis({
+          ...synthesisData,
+          peptide_data: peptideData,
+        });
       } else {
         setSynthesis(null);
         setError('Synthesis not found. Try running the synthesis command first.');
@@ -502,6 +545,154 @@ function SynthesisContent() {
                       {renderNestedObject(synthesis.outline.citations)}
                     </div>
                   </Collapsible>
+                )}
+
+                {/* Peptide Data Sections */}
+                {synthesis.peptide_data && (
+                  <>
+                    {/* Chemical Properties */}
+                    {(synthesis.peptide_data.molecular_weight || 
+                      synthesis.peptide_data.molecular_formula || 
+                      synthesis.peptide_data.sequence || 
+                      synthesis.peptide_data.purity !== undefined) && (
+                      <Collapsible 
+                        title="Chemical Properties" 
+                        icon="🧬" 
+                        defaultOpen={true}
+                      >
+                        <div className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-lg space-y-3 text-gray-700 dark:text-gray-300">
+                          {synthesis.peptide_data.molecular_weight !== undefined && (
+                            <div className="flex justify-between items-start">
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">Molecular Weight:</span>
+                              <span>{synthesis.peptide_data.molecular_weight.toFixed(2)} g/mol</span>
+                            </div>
+                          )}
+                          {synthesis.peptide_data.molecular_formula && (
+                            <div className="flex justify-between items-start">
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">Molecular Formula:</span>
+                              <code className="bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded text-sm">{synthesis.peptide_data.molecular_formula}</code>
+                            </div>
+                          )}
+                          {synthesis.peptide_data.sequence && (
+                            <div>
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">Sequence:</span>
+                              <div className="mt-2 bg-gray-200 dark:bg-gray-700 p-3 rounded font-mono text-sm break-all max-h-32 overflow-y-auto">
+                                {synthesis.peptide_data.sequence}
+                              </div>
+                            </div>
+                          )}
+                          {synthesis.peptide_data.purity !== undefined && (
+                            <div className="flex justify-between items-start">
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">Purity:</span>
+                              <span className="bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-100 px-3 py-1 rounded-full">
+                                {(synthesis.peptide_data.purity * 100).toFixed(2)}%
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </Collapsible>
+                    )}
+
+                    {/* Structural Data */}
+                    {(synthesis.peptide_data.pdb_ids?.length || 
+                      synthesis.peptide_data.coordinates_3d || 
+                      synthesis.peptide_data.experimental_methods?.length) && (
+                      <Collapsible 
+                        title="Structural Data" 
+                        icon="🔬" 
+                        defaultOpen={false}
+                      >
+                        <div className="bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-900/20 dark:to-cyan-900/20 p-4 rounded-lg space-y-3 text-gray-700 dark:text-gray-300">
+                          {synthesis.peptide_data.pdb_ids && synthesis.peptide_data.pdb_ids.length > 0 && (
+                            <div>
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">PDB IDs:</span>
+                              <div className="mt-2 space-y-2">
+                                {synthesis.peptide_data.pdb_ids.map((pdbId, idx) => (
+                                  <a
+                                    key={idx}
+                                    href={`https://www.rcsb.org/structure/${pdbId}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-block bg-blue-200 dark:bg-blue-900/50 hover:bg-blue-300 dark:hover:bg-blue-900/70 text-blue-900 dark:text-blue-100 px-3 py-1 rounded text-sm font-mono transition"
+                                  >
+                                    {pdbId} ↗
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {synthesis.peptide_data.experimental_methods && 
+                           synthesis.peptide_data.experimental_methods.length > 0 && (
+                            <div>
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">Experimental Methods:</span>
+                              <ul className="mt-2 list-disc list-inside space-y-1">
+                                {synthesis.peptide_data.experimental_methods.map((method, idx) => (
+                                  <li key={idx}>{method}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {synthesis.peptide_data.coordinates_3d && (
+                            <div>
+                              <span className="font-semibold text-gray-900 dark:text-gray-100">3D Coordinates Available:</span>
+                              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                                ✓ Structure coordinates stored in database
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </Collapsible>
+                    )}
+
+                    {/* Suppliers */}
+                    {synthesis.peptide_data.suppliers && synthesis.peptide_data.suppliers.length > 0 && (
+                      <Collapsible 
+                        title="Suppliers" 
+                        icon="🛒" 
+                        defaultOpen={false}
+                      >
+                        <div className="space-y-3">
+                          {synthesis.peptide_data.suppliers.map((supplier, idx) => (
+                            <div 
+                              key={idx}
+                              className="bg-gradient-to-br from-orange-50 to-yellow-50 dark:from-orange-900/20 dark:to-yellow-900/20 p-4 rounded-lg border border-orange-200 dark:border-orange-800"
+                            >
+                              <div className="flex justify-between items-start mb-2">
+                                <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                                  {supplier.url ? (
+                                    <a
+                                      href={supplier.url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-orange-600 dark:text-orange-400 hover:underline"
+                                    >
+                                      {supplier.name} ↗
+                                    </a>
+                                  ) : (
+                                    supplier.name
+                                  )}
+                                </h4>
+                                {supplier.availability && (
+                                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                                    supplier.availability.toLowerCase() === 'in stock'
+                                      ? 'bg-green-200 dark:bg-green-900/30 text-green-800 dark:text-green-100'
+                                      : 'bg-yellow-200 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-100'
+                                  }`}>
+                                    {supplier.availability}
+                                  </span>
+                                )}
+                              </div>
+                              {supplier.price && (
+                                <p className="text-sm text-gray-700 dark:text-gray-300">
+                                  <span className="font-medium">Price:</span> {supplier.price}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </Collapsible>
+                    )}
+                  </>
                 )}
               </div>
 

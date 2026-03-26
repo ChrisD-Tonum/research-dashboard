@@ -1,12 +1,31 @@
 import jsPDF from 'jspdf';
 
-interface Synthesis {
+export interface PeptideData {
+  id?: number;
+  synthesis_id?: number;
+  molecular_weight?: number;
+  molecular_formula?: string;
+  sequence?: string;
+  purity?: number;
+  pdb_ids?: string[];
+  coordinates_3d?: any;
+  experimental_methods?: string[];
+  suppliers?: Array<{
+    name: string;
+    url?: string;
+    price?: string;
+    availability?: string;
+  }>;
+}
+
+export interface Synthesis {
   id: number;
   topic: string;
   format: string;
   outline: any;
   full_text: string;
   generated_at: string;
+  peptide_data?: PeptideData | null;
 }
 
 function formatDate(date: string | Date): string {
@@ -135,6 +154,60 @@ export function exportSynthesisToPDF(synthesis: Synthesis): void {
     });
   }
 
+  // Add peptide data if available
+  if (synthesis.peptide_data) {
+    const peptide = synthesis.peptide_data;
+    
+    if (peptide.molecular_weight || peptide.molecular_formula || peptide.sequence || peptide.purity !== undefined) {
+      yPosition += 3;
+      addText('Chemical Properties', 14, true);
+      if (peptide.molecular_weight) {
+        addText(`Molecular Weight: ${peptide.molecular_weight.toFixed(2)} g/mol`, 10);
+      }
+      if (peptide.molecular_formula) {
+        addText(`Molecular Formula: ${peptide.molecular_formula}`, 10);
+      }
+      if (peptide.sequence) {
+        addText(`Sequence: ${peptide.sequence}`, 10);
+      }
+      if (peptide.purity !== undefined) {
+        addText(`Purity: ${(peptide.purity * 100).toFixed(2)}%`, 10);
+      }
+    }
+
+    if (peptide.pdb_ids?.length || peptide.experimental_methods?.length) {
+      yPosition += 3;
+      addText('Structural Data', 14, true);
+      if (peptide.pdb_ids && peptide.pdb_ids.length > 0) {
+        addText(`PDB IDs: ${peptide.pdb_ids.join(', ')}`, 10);
+      }
+      if (peptide.experimental_methods && peptide.experimental_methods.length > 0) {
+        addText('Experimental Methods:', 10, true);
+        peptide.experimental_methods.forEach(method => {
+          addText(`• ${method}`, 10);
+        });
+      }
+      if (peptide.coordinates_3d) {
+        addText('3D Coordinates: Available', 10);
+      }
+    }
+
+    if (peptide.suppliers && peptide.suppliers.length > 0) {
+      yPosition += 3;
+      addText('Suppliers', 14, true);
+      peptide.suppliers.forEach((supplier) => {
+        addText(`${supplier.name}${supplier.availability ? ` (${supplier.availability})` : ''}`, 10, true);
+        if (supplier.price) {
+          addText(`Price: ${supplier.price}`, 10);
+        }
+        if (supplier.url) {
+          addText(`URL: ${supplier.url}`, 9);
+        }
+        yPosition += 1;
+      });
+    }
+  }
+
   // Add full text if available
   if (synthesis.full_text) {
     addText('Full Text', 14, true);
@@ -155,6 +228,7 @@ export function exportSynthesisToJSON(synthesis: Synthesis): void {
     format: synthesis.format,
     outline: synthesis.outline,
     full_text: synthesis.full_text,
+    ...(synthesis.peptide_data && { peptide_data: synthesis.peptide_data }),
   };
 
   const blob = new Blob([JSON.stringify(data, null, 2)], {
@@ -205,6 +279,49 @@ export function exportSynthesisToCSV(synthesis: Synthesis): void {
         rows.push(`"${title}","${contentText}"`);
       }
     });
+  }
+
+  // Add peptide data if available
+  if (synthesis.peptide_data) {
+    const peptide = synthesis.peptide_data;
+    rows.push(''); // Empty line for separation
+    
+    if (peptide.molecular_weight || peptide.molecular_formula || peptide.sequence || peptide.purity !== undefined) {
+      rows.push('"Chemical Properties",""');
+      if (peptide.molecular_weight) {
+        rows.push(`"  Molecular Weight","${peptide.molecular_weight.toFixed(2)} g/mol"`);
+      }
+      if (peptide.molecular_formula) {
+        rows.push(`"  Molecular Formula","${peptide.molecular_formula}"`);
+      }
+      if (peptide.sequence) {
+        rows.push(`"  Sequence","${peptide.sequence.replace(/"/g, '""')}"`);
+      }
+      if (peptide.purity !== undefined) {
+        rows.push(`"  Purity","${(peptide.purity * 100).toFixed(2)}%"`);
+      }
+    }
+
+    if (peptide.pdb_ids?.length || peptide.experimental_methods?.length) {
+      rows.push('"Structural Data",""');
+      if (peptide.pdb_ids && peptide.pdb_ids.length > 0) {
+        rows.push(`"  PDB IDs","${peptide.pdb_ids.join(', ')}"`);
+      }
+      if (peptide.experimental_methods && peptide.experimental_methods.length > 0) {
+        rows.push(`"  Experimental Methods","${peptide.experimental_methods.join('; ')}"`);
+      }
+      if (peptide.coordinates_3d) {
+        rows.push('"  3D Coordinates","Available"');
+      }
+    }
+
+    if (peptide.suppliers && peptide.suppliers.length > 0) {
+      rows.push('"Suppliers",""');
+      peptide.suppliers.forEach((supplier) => {
+        const supplierInfo = `${supplier.name}${supplier.availability ? ` (${supplier.availability})` : ''}${supplier.price ? ` - ${supplier.price}` : ''}${supplier.url ? ` - ${supplier.url}` : ''}`;
+        rows.push(`"  Supplier","${supplierInfo.replace(/"/g, '""')}"`);
+      });
+    }
   }
 
   // Add full text if available
