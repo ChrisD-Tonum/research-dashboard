@@ -939,8 +939,8 @@ function SynthesisContent() {
                 <div className="mb-6">
                   <Collapsible title="Crawl Statistics" icon="📊" defaultOpen={true}>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {(selectedSource === 'All Sources' ? crawlStats : [sourceStats].filter(Boolean)).map(stat => (
-                        <div 
+                      {(selectedSource === 'All Sources' ? crawlStats : [sourceStats].filter(Boolean)).map((stat) => (
+                        stat && <div 
                           key={stat.source}
                           className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/20 p-4 rounded-lg border border-indigo-200 dark:border-indigo-800"
                         >
@@ -966,7 +966,7 @@ function SynthesisContent() {
                             </div>
                           </div>
                         </div>
-                      ))}
+                      ) || null)}
                     </div>
                   </Collapsible>
                 </div>
