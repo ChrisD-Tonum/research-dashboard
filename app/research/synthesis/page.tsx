@@ -644,21 +644,15 @@ function SynthesisContent() {
                     <div className="flex flex-wrap gap-2">
                       <Badge 
                         label={new Date(synthesis.generated_at).toLocaleDateString()} 
-                        variant="date" 
-                        icon="📅"
-                        size="sm"
+                        variant="date"
                       />
                       <Badge 
                         label={new Date(synthesis.generated_at).toLocaleTimeString()} 
-                        variant="default" 
-                        icon="⏰"
-                        size="sm"
+                        variant="default"
                       />
                       <Badge 
                         label={synthesis.format || 'Structured'} 
-                        variant="tag" 
-                        icon="📋"
-                        size="sm"
+                        variant="tag"
                       />
                     </div>
                   </div>
@@ -986,8 +980,6 @@ function SynthesisContent() {
                     <Badge 
                       label={`${filteredRawData.length} pages found`}
                       variant="tag"
-                      icon="📄"
-                      size="sm"
                     />
                   </div>
 
@@ -1017,14 +1009,10 @@ function SynthesisContent() {
                                   <Badge 
                                     label={item.source}
                                     variant="tag"
-                                    icon="🏷️"
-                                    size="xs"
                                   />
                                   <Badge 
                                     label={new Date(item.crawl_date).toLocaleDateString()}
                                     variant="date"
-                                    icon="📅"
-                                    size="xs"
                                   />
                                 </div>
                               </div>
