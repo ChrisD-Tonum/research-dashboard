@@ -54,6 +54,27 @@ interface RawPeptideData {
   metadata?: Record<string, any>;
 }
 
+interface ExtractedPeptide {
+  id: number;
+  raw_data_id: number;
+  peptide_name: string;
+  molecular_weight?: number;
+  molecular_formula?: string;
+  sequence?: string;
+  pdb_ids?: string[];
+  suppliers?: Array<{
+    name: string;
+    url?: string;
+    price?: string;
+    availability?: string;
+  }>;
+  research_links?: string[];
+  clinical_status?: string;
+  confidence_score: number;
+  extracted_at: string;
+  source_name?: string;
+}
+
 interface CrawlStats {
   source: string;
   total_pages: number;
@@ -133,7 +154,7 @@ function SynthesisContent() {
   const [availableTopics, setAvailableTopics] = useState<string[]>([]);
 
   // Raw Peptide Data State
-  const [activeTab, setActiveTab] = useState<'synthesis' | 'raw'>('synthesis');
+  const [activeTab, setActiveTab] = useState<'synthesis' | 'raw' | 'extracted'>('synthesis');
   const [rawPeptideData, setRawPeptideData] = useState<RawPeptideData[]>([]);
   const [selectedSource, setSelectedSource] = useState<string>('All Sources');
   const [rawDataLoading, setRawDataLoading] = useState(false);
@@ -148,6 +169,12 @@ function SynthesisContent() {
     content: '',
   });
   const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+
+  // Extracted Peptides State
+  const [extractedPeptides, setExtractedPeptides] = useState<ExtractedPeptide[]>([]);
+  const [extractedLoading, setExtractedLoading] = useState(false);
+  const [extractedFilter, setExtractedFilter] = useState<string>('');
+  const [extractedSortBy, setExtractedSortBy] = useState<'name' | 'weight' | 'confidence'>('name');
 
   // Initialize topic from URL query param on mount
   useEffect(() => {
@@ -209,9 +236,13 @@ function SynthesisContent() {
       if (activeTab === 'raw') {
         fetchRawPeptideData();
       }
+      if (activeTab === 'extracted') {
+        fetchExtractedPeptides();
+      }
     } else {
       setSynthesis(null);
       setRawPeptideData([]);
+      setExtractedPeptides([]);
       setError(null);
     }
   }, [topic, activeTab]);
@@ -313,6 +344,33 @@ function SynthesisContent() {
       addToast('Failed to load raw peptide data', 'error');
     } finally {
       setRawDataLoading(false);
+    }
+  }
+
+  async function fetchExtractedPeptides() {
+    if (!topic.trim()) return;
+
+    setExtractedLoading(true);
+    try {
+      // Fetch extracted peptides with pagination/filtering
+      const { data, error } = await supabase
+        .from('peptide_extracted_with_source')
+        .select('*')
+        .order('extracted_at', { ascending: false })
+        .limit(100);
+
+      if (error) {
+        console.error('Error fetching extracted peptides:', error);
+        throw error;
+      }
+
+      // Filter by topic based on source content (in a real app, add topic column to peptide_extracted)
+      setExtractedPeptides(data || []);
+    } catch (error) {
+      console.error('Error fetching extracted data:', error);
+      addToast('Failed to load extracted peptides', 'error');
+    } finally {
+      setExtractedLoading(false);
     }
   }
 
@@ -579,6 +637,16 @@ function SynthesisContent() {
               }`}
             >
               🧬 Raw Peptide Data
+            </button>
+            <button
+              onClick={() => setActiveTab('extracted')}
+              className={`flex-1 px-6 py-4 text-center font-medium transition ${
+                activeTab === 'extracted'
+                  ? 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 text-indigo-600 dark:text-indigo-300 border-b-2 border-indigo-600 dark:border-indigo-400'
+                  : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              ✨ Extracted Peptides
             </button>
           </div>
         </div>
@@ -1076,6 +1144,259 @@ function SynthesisContent() {
                   <p className="text-gray-600 dark:text-gray-300">
                     {topic ? `No crawled pages found for "${topic}" or selected source` : 'Select a topic to view raw peptide data'}
                   </p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Extracted Peptides Tab */}
+          {activeTab === 'extracted' && (
+            <>
+              {/* Filter and Sort Controls */}
+              <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                    Search Peptides
+                  </label>
+                  <input
+                    type="text"
+                    value={extractedFilter}
+                    onChange={(e) => setExtractedFilter(e.target.value.toLowerCase())}
+                    placeholder="Search by name, formula, sequence..."
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">
+                    Sort By
+                  </label>
+                  <select
+                    value={extractedSortBy}
+                    onChange={(e) => setExtractedSortBy(e.target.value as any)}
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition"
+                  >
+                    <option value="name">Name (A-Z)</option>
+                    <option value="weight">Molecular Weight</option>
+                    <option value="confidence">Confidence Score</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Loading State */}
+              {extractedLoading && (
+                <div className="text-center py-12">
+                  <LoadingSpinner size="md" text="Loading extracted peptides..." />
+                </div>
+              )}
+
+              {/* Extracted Peptides List */}
+              {!extractedLoading && extractedPeptides.length > 0 && (
+                <div>
+                  {(() => {
+                    // Filter peptides
+                    let filtered = extractedPeptides.filter((p) => {
+                      if (!extractedFilter) return true;
+                      const f = extractedFilter;
+                      return (
+                        p.peptide_name?.toLowerCase().includes(f) ||
+                        p.molecular_formula?.toLowerCase().includes(f) ||
+                        p.sequence?.toLowerCase().includes(f) ||
+                        p.clinical_status?.toLowerCase().includes(f)
+                      );
+                    });
+
+                    // Sort peptides
+                    if (extractedSortBy === 'weight') {
+                      filtered.sort((a, b) => (b.molecular_weight || 0) - (a.molecular_weight || 0));
+                    } else if (extractedSortBy === 'confidence') {
+                      filtered.sort((a, b) => b.confidence_score - a.confidence_score);
+                    } else {
+                      filtered.sort((a, b) => (a.peptide_name || '').localeCompare(b.peptide_name || ''));
+                    }
+
+                    return (
+                      <>
+                        <div className="mb-4">
+                          <Badge 
+                            label={`${filtered.length} / ${extractedPeptides.length} peptides`}
+                            variant="tag"
+                          />
+                        </div>
+
+                        <div className="space-y-4">
+                          {filtered.map((peptide) => (
+                            <div
+                              key={peptide.id}
+                              className="border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden transition-all hover:shadow-md dark:hover:shadow-lg bg-gradient-to-br from-gray-50 to-white dark:from-gray-750 dark:to-gray-800"
+                            >
+                              {/* Header */}
+                              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 border-b border-gray-300 dark:border-gray-600">
+                                <div className="flex items-start justify-between gap-4 mb-3">
+                                  <div className="flex-1">
+                                    <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">
+                                      {peptide.peptide_name || '(Unknown)'}
+                                    </h4>
+                                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                                      {peptide.source_name && `Source: ${peptide.source_name}`}
+                                      {peptide.source_name && peptide.clinical_status && ' • '}
+                                      {peptide.clinical_status && `Status: ${peptide.clinical_status}`}
+                                    </p>
+                                  </div>
+                                  <div className="text-right flex-shrink-0">
+                                    <div className="inline-block bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900/30 dark:to-orange-900/30 px-3 py-1 rounded-full">
+                                      <span className="text-sm font-semibold text-yellow-900 dark:text-yellow-200">
+                                        {(peptide.confidence_score * 100).toFixed(0)}% confidence
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Quick Info Badges */}
+                                <div className="flex flex-wrap gap-2">
+                                  {peptide.molecular_weight && (
+                                    <Badge 
+                                      label={`MW: ${peptide.molecular_weight.toFixed(2)} Da`}
+                                      variant="tag"
+                                    />
+                                  )}
+                                  {peptide.molecular_formula && (
+                                    <Badge 
+                                      label={`Formula: ${peptide.molecular_formula}`}
+                                      variant="tag"
+                                    />
+                                  )}
+                                  {peptide.pdb_ids && peptide.pdb_ids.length > 0 && (
+                                    <Badge 
+                                      label={`${peptide.pdb_ids.length} PDB ID(s)`}
+                                      variant="tag"
+                                    />
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Content */}
+                              <div className="p-4 space-y-3">
+                                {/* Sequence */}
+                                {peptide.sequence && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">
+                                      Sequence
+                                    </p>
+                                    <p className="font-mono text-sm break-all bg-gray-100 dark:bg-gray-900 p-2 rounded text-gray-900 dark:text-gray-100 max-h-12 overflow-hidden">
+                                      {peptide.sequence.length > 100 
+                                        ? `${peptide.sequence.substring(0, 100)}...` 
+                                        : peptide.sequence}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* Suppliers */}
+                                {peptide.suppliers && peptide.suppliers.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                      Suppliers ({peptide.suppliers.length})
+                                    </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                      {peptide.suppliers.map((supplier, idx) => (
+                                        <div 
+                                          key={idx}
+                                          className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded border border-blue-200 dark:border-blue-800 text-sm"
+                                        >
+                                          <p className="font-medium text-blue-900 dark:text-blue-100">
+                                            {supplier.name}
+                                          </p>
+                                          {supplier.price && (
+                                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                                              Price: {supplier.price}
+                                            </p>
+                                          )}
+                                          {supplier.url && (
+                                            <a
+                                              href={supplier.url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="text-xs text-blue-600 dark:text-blue-400 hover:underline block truncate"
+                                            >
+                                              Visit ↗
+                                            </a>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Research Links */}
+                                {peptide.research_links && peptide.research_links.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                      Research Links ({peptide.research_links.length})
+                                    </p>
+                                    <div className="space-y-1">
+                                      {peptide.research_links.slice(0, 3).map((link, idx) => (
+                                        <a
+                                          key={idx}
+                                          href={link}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-sm text-green-600 dark:text-green-400 hover:underline block truncate"
+                                        >
+                                          📑 {link.substring(0, 70)}...
+                                        </a>
+                                      ))}
+                                      {peptide.research_links.length > 3 && (
+                                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                                          +{peptide.research_links.length - 3} more
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* PDB IDs */}
+                                {peptide.pdb_ids && peptide.pdb_ids.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                                      PDB Structures
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {peptide.pdb_ids.map((id, idx) => (
+                                        <a
+                                          key={idx}
+                                          href={`https://www.rcsb.org/structure/${id}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-sm px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-900/50 font-mono"
+                                        >
+                                          {id} ↗
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+
+              {/* Empty State */}
+              {!extractedLoading && extractedPeptides.length === 0 && (
+                <div className="text-center py-12 bg-purple-50 dark:bg-purple-900/20 rounded-lg border border-purple-200 dark:border-purple-800">
+                  <p className="text-2xl mb-3">🔬 No extracted peptides yet</p>
+                  <p className="text-gray-600 dark:text-gray-300 mb-4">
+                    {topic ? `No peptides have been extracted for "${topic}" yet` : 'Select a topic to view extracted peptides'}
+                  </p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    To extract peptides, run:
+                  </p>
+                  <code className="block mt-3 bg-purple-100 dark:bg-purple-900/50 p-3 rounded text-xs text-purple-900 dark:text-purple-100 inline-block max-w-md">
+                    node scripts/extract-from-raw.js --limit 50
+                  </code>
                 </div>
               )}
             </>
