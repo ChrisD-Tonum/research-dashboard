@@ -41,6 +41,7 @@ interface Synthesis {
   full_text: string;
   generated_at: string;
   peptide_data?: PeptideData | null;
+  linked_peptides?: ExtractedPeptide[];
 }
 
 interface RawPeptideData {
@@ -269,28 +270,43 @@ function SynthesisContent() {
         const synthesisData = data[0];
         console.log('Synthesis data:', JSON.stringify(synthesisData, null, 2));
         
-        // Fetch peptide data if it exists
-        let peptideData = null;
+        // Phase 3: Fetch linked peptides via junction table
+        let linkedPeptides: ExtractedPeptide[] = [];
         try {
           const { data: peptideRows, error: peptideErr } = await supabase
-            .from('peptide_data')
+            .from('synthesis_peptides_detailed')
             .select('*')
-            .eq('synthesis_id', synthesisData.id)
-            .limit(1);
+            .eq('synthesis_id', synthesisData.id);
 
           if (peptideErr) {
-            console.warn('Could not fetch peptide data:', peptideErr);
+            console.warn('Could not fetch linked peptides:', peptideErr);
           } else if (peptideRows && peptideRows.length > 0) {
-            peptideData = peptideRows[0];
-            console.log('Peptide data found:', JSON.stringify(peptideData, null, 2));
+            // Transform the data to match ExtractedPeptide interface
+            linkedPeptides = peptideRows.map((row: any) => ({
+              id: row.peptide_id,
+              raw_data_id: 0, // Not available from view
+              peptide_name: row.peptide_name,
+              molecular_weight: row.molecular_weight,
+              molecular_formula: row.molecular_formula,
+              sequence: row.sequence,
+              pdb_ids: Array.isArray(row.pdb_ids) ? row.pdb_ids : [],
+              suppliers: row.suppliers ? JSON.parse(row.suppliers) : [],
+              research_links: row.research_links ? JSON.parse(row.research_links) : [],
+              clinical_status: row.clinical_status,
+              confidence_score: row.confidence_score || 0,
+              extracted_at: row.peptide_extracted_at,
+              source_name: row.source_name,
+            }));
+            console.log('Linked peptides found:', JSON.stringify(linkedPeptides, null, 2));
           }
         } catch (peptideError) {
-          console.warn('Error fetching peptide data:', peptideError);
+          console.warn('Error fetching linked peptides:', peptideError);
         }
 
         setSynthesis({
           ...synthesisData,
-          peptide_data: peptideData,
+          peptide_data: linkedPeptides.length > 0 ? linkedPeptides[0] : null,
+          linked_peptides: linkedPeptides,
         });
       } else {
         setSynthesis(null);
@@ -792,6 +808,179 @@ function SynthesisContent() {
                       <Collapsible title="Citations" icon="📚" defaultOpen={false}>
                         <div className="text-gray-700 dark:text-gray-300">
                           {renderNestedObject(synthesis.outline.citations)}
+                        </div>
+                      </Collapsible>
+                    )}
+
+                    {/* Phase 3: Linked Peptides Section */}
+                    {synthesis.linked_peptides && synthesis.linked_peptides.length > 0 && (
+                      <Collapsible 
+                        title={`Linked Peptide Data (${synthesis.linked_peptides.length})`}
+                        icon="🔗"
+                        defaultOpen={true}
+                      >
+                        <div className="space-y-4">
+                          {synthesis.linked_peptides.map((pep, idx) => (
+                            <div 
+                              key={pep.id}
+                              className="border border-green-300 dark:border-green-700 rounded-lg overflow-hidden bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20"
+                            >
+                              {/* Peptide Header */}
+                              <div className="bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/40 dark:to-emerald-900/40 px-4 py-3 border-b border-green-300 dark:border-green-700">
+                                <div className="flex items-start justify-between gap-4">
+                                  <div className="flex-1">
+                                    <h4 className="text-lg font-bold text-green-900 dark:text-green-100">
+                                      {pep.peptide_name || `Peptide ${idx + 1}`}
+                                    </h4>
+                                    {pep.source_name && (
+                                      <p className="text-sm text-green-700 dark:text-green-300">
+                                        Source: {pep.source_name}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {pep.confidence_score > 0 && (
+                                    <div className="bg-green-200 dark:bg-green-900/60 px-3 py-1 rounded-full">
+                                      <span className="text-sm font-semibold text-green-900 dark:text-green-100">
+                                        {(pep.confidence_score * 100).toFixed(0)}%
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Peptide Content */}
+                              <div className="px-4 py-4 space-y-4">
+                                {/* Quick Info Grid */}
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                  {pep.molecular_weight && (
+                                    <div className="bg-white dark:bg-gray-800 p-3 rounded border border-green-200 dark:border-green-700">
+                                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">MW</p>
+                                      <p className="text-sm font-mono text-gray-900 dark:text-gray-100">
+                                        {pep.molecular_weight.toFixed(2)} Da
+                                      </p>
+                                    </div>
+                                  )}
+                                  {pep.molecular_formula && (
+                                    <div className="bg-white dark:bg-gray-800 p-3 rounded border border-green-200 dark:border-green-700">
+                                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Formula</p>
+                                      <p className="text-sm font-mono text-gray-900 dark:text-gray-100 truncate">
+                                        {pep.molecular_formula}
+                                      </p>
+                                    </div>
+                                  )}
+                                  {pep.clinical_status && (
+                                    <div className="bg-white dark:bg-gray-800 p-3 rounded border border-green-200 dark:border-green-700">
+                                      <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase">Status</p>
+                                      <p className="text-sm text-gray-900 dark:text-gray-100">
+                                        {pep.clinical_status}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* Sequence */}
+                                {pep.sequence && (
+                                  <div className="bg-white dark:bg-gray-800 p-3 rounded border border-green-200 dark:border-green-700">
+                                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-2">Sequence</p>
+                                    <p className="font-mono text-xs text-gray-900 dark:text-gray-100 break-all max-h-12 overflow-hidden">
+                                      {pep.sequence}
+                                    </p>
+                                  </div>
+                                )}
+
+                                {/* Suppliers */}
+                                {pep.suppliers && pep.suppliers.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-2">
+                                      Suppliers
+                                    </p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                      {pep.suppliers.map((supplier, si) => (
+                                        <div 
+                                          key={si}
+                                          className="bg-white dark:bg-gray-800 p-3 rounded border border-orange-200 dark:border-orange-700"
+                                        >
+                                          <p className="font-medium text-gray-900 dark:text-gray-100">
+                                            {supplier.url ? (
+                                              <a
+                                                href={supplier.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-orange-600 dark:text-orange-400 hover:underline"
+                                              >
+                                                {supplier.name} ↗
+                                              </a>
+                                            ) : (
+                                              supplier.name
+                                            )}
+                                          </p>
+                                          {supplier.price && (
+                                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                                              {supplier.price}
+                                            </p>
+                                          )}
+                                          {supplier.availability && (
+                                            <p className="text-xs text-gray-600 dark:text-gray-400">
+                                              {supplier.availability}
+                                            </p>
+                                          )}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* PDB IDs */}
+                                {pep.pdb_ids && pep.pdb_ids.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-2">
+                                      PDB Structures
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      {pep.pdb_ids.map((id, pi) => (
+                                        <a
+                                          key={pi}
+                                          href={`https://www.rcsb.org/structure/${id}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs px-2 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded hover:bg-red-200 dark:hover:bg-red-900/50 font-mono"
+                                        >
+                                          {id} ↗
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* Research Links */}
+                                {pep.research_links && pep.research_links.length > 0 && (
+                                  <div>
+                                    <p className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase mb-2">
+                                      Research Links
+                                    </p>
+                                    <div className="space-y-1">
+                                      {pep.research_links.slice(0, 3).map((link, li) => (
+                                        <a
+                                          key={li}
+                                          href={link}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs text-blue-600 dark:text-blue-400 hover:underline block truncate"
+                                        >
+                                          📑 {link.substring(0, 60)}...
+                                        </a>
+                                      ))}
+                                      {pep.research_links.length > 3 && (
+                                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                                          +{pep.research_links.length - 3} more
+                                        </p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </Collapsible>
                     )}

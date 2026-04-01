@@ -15,16 +15,28 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
 
   const navItems = [
     {
-      label: 'Articles',
+      label: 'Peptide Overview',
       href: '/research',
-      icon: '📄',
-      description: 'Browse research articles',
+      icon: '🧬',
+      description: 'All enriched peptides',
     },
     {
-      label: 'Synthesis',
-      href: '/research/synthesis',
+      label: 'Phase 2: Enrichments',
+      href: '/research/peptide-enrichments',
+      icon: '📈',
+      description: 'Enriched peptide data',
+    },
+    {
+      label: 'Phase 3: Synthesis',
+      href: '/research/peptide-synthesis',
       icon: '📊',
-      description: 'View AI-generated summaries',
+      description: 'AI synthesis reports',
+    },
+    {
+      label: 'Legacy: Articles',
+      href: '/research/synthesis',
+      icon: '📄',
+      description: 'Old pipeline data',
     },
   ];
 
