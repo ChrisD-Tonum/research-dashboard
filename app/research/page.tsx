@@ -181,7 +181,7 @@ export default function ResearchPage() {
       }));
 
       // Update stats
-      const withSynthesis = data?.filter(e => e.phase_3_synthesis).length || 0;
+      const withSynthesis = data?.filter((e: PeptideEnrichment) => e.phase_3_synthesis).length || 0;
       setTotalStats({
         enriched: totalItems,
         withSynthesis: withSynthesis,
