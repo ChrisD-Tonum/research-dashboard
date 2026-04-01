@@ -75,11 +75,11 @@ export default function ResearchPage() {
       try {
         const { data } = await supabase
           .from('peptide_enrichments')
-          .select('peptides(category_function)');
+          .select('peptides(category_function)') as any;
 
         const categories = new Set<string>();
         if (data) {
-          data.forEach(e => {
+          data.forEach((e: any) => {
             if (e.peptides?.category_function) {
               categories.add(e.peptides.category_function);
             }
@@ -127,7 +127,7 @@ export default function ResearchPage() {
           *,
           peptides(id, name, sequence, molecular_weight, source, category_function)
         `)
-        .eq('phase_2_success', true);
+        .eq('phase_2_success', true) as any;
 
       // Apply filters
       if (filters.phase === 'phase3') {
