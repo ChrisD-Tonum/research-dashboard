@@ -75,26 +75,36 @@ export default function ResearchPage() {
   useEffect(() => {
     async function fetchCategoriesAndPeptides() {
       try {
-        const { data } = await supabase
+        // Fetch directly from peptides table
+        const { data: peptidesData, error: peptidesError } = await supabase
+          .from('peptides')
+          .select('id, name, category_function')
+          .order('name', { ascending: true });
+
+        if (peptidesError) {
+          console.error('Error fetching peptides:', peptidesError);
+        }
+
+        // Fetch enrichments for categories
+        const { data: enrichmentsData, error: enrichmentsError } = await supabase
           .from('peptide_enrichments')
-          .select('peptides(id, name, category_function)') as any;
+          .select('peptide_id, peptides(category_function)') as any;
+
+        if (enrichmentsError) {
+          console.error('Error fetching enrichments:', enrichmentsError);
+        }
 
         const categories = new Set<string>();
-        const peptides = new Set<{ id: string; name: string }>();
-
-        if (data) {
-          data.forEach((e: any) => {
-            if (e.peptides) {
-              if (e.peptides.category_function) {
-                categories.add(e.peptides.category_function);
-              }
-              peptides.add({ id: e.peptides.id, name: e.peptides.name });
+        if (enrichmentsData) {
+          enrichmentsData.forEach((e: any) => {
+            if (e.peptides?.category_function) {
+              categories.add(e.peptides.category_function);
             }
           });
         }
 
         setAvailableCategories(Array.from(categories).sort());
-        setAvailablePeptides(Array.from(peptides).sort((a, b) => a.name.localeCompare(b.name)));
+        setAvailablePeptides(peptidesData || []);
       } catch (error) {
         console.error('Error fetching categories and peptides:', error);
       }
