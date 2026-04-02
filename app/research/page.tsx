@@ -74,6 +74,7 @@ export default function ResearchPage() {
   // Fetch all available categories and peptides on mount
   useEffect(() => {
     async function fetchCategoriesAndPeptides() {
+      console.log('🔄 Loading peptides from database...');
       try {
         // Fetch directly from peptides table (Phase 1 data)
         const { data: peptidesData, error: peptidesError } = await supabase
@@ -84,6 +85,7 @@ export default function ResearchPage() {
         if (peptidesError) {
           console.error('Error fetching peptides:', peptidesError);
         } else {
+          console.log(`✅ Loaded ${peptidesData?.length || 0} peptides`);
           setAvailablePeptides(peptidesData || []);
         }
 
