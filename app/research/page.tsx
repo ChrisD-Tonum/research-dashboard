@@ -75,7 +75,7 @@ export default function ResearchPage() {
   useEffect(() => {
     async function fetchCategoriesAndPeptides() {
       try {
-        // Fetch directly from peptides table
+        // Fetch directly from peptides table (Phase 1 data)
         const { data: peptidesData, error: peptidesError } = await supabase
           .from('peptides')
           .select('id, name, category_function')
@@ -83,9 +83,11 @@ export default function ResearchPage() {
 
         if (peptidesError) {
           console.error('Error fetching peptides:', peptidesError);
+        } else {
+          setAvailablePeptides(peptidesData || []);
         }
 
-        // Fetch enrichments for categories
+        // Fetch enrichments for categories (Phase 2 data - may be empty)
         const { data: enrichmentsData, error: enrichmentsError } = await supabase
           .from('peptide_enrichments')
           .select('peptide_id, peptides(category_function)') as any;
@@ -103,8 +105,9 @@ export default function ResearchPage() {
           });
         }
 
-        setAvailableCategories(Array.from(categories).sort());
-        setAvailablePeptides(peptidesData || []);
+        if (categories.size > 0) {
+          setAvailableCategories(Array.from(categories).sort());
+        }
       } catch (error) {
         console.error('Error fetching categories and peptides:', error);
       }
@@ -420,11 +423,29 @@ export default function ResearchPage() {
           <>
             {enrichments.length === 0 ? (
               <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-12 text-center">
-                <p className="text-gray-600 dark:text-gray-400 text-lg">
-                  {searchTerm || Object.values(filters).some(v => v !== 'all')
-                    ? 'No peptides match your search criteria'
-                    : 'No enriched peptides found. Run Phase 2 enrichment first.'}
-                </p>
+                <div className="max-w-md mx-auto">
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    🧬 No Enriched Peptides Yet
+                  </p>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    {searchTerm || Object.values(filters).some(v => v !== 'all')
+                      ? 'No peptides match your search criteria.'
+                      : `Phase 1 crawl found ${availablePeptides.length} peptides, but Phase 2 enrichment hasn't run yet.`}
+                  </p>
+                  {availablePeptides.length > 0 && (
+                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                      <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                        ✅ <strong>{availablePeptides.length} peptides</strong> are ready in Phase 1
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        Run Phase 2 enrichment to analyze and display these peptides:
+                      </p>
+                      <code className="text-xs bg-gray-900 text-green-400 p-2 rounded mt-2 block font-mono">
+                        node scripts/crawl.cjs --stage enrichment
+                      </code>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <div className="space-y-4">
