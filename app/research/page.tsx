@@ -7,7 +7,7 @@ import DarkModeToggle from '@/app/components/DarkModeToggle';
 import LoadingSpinner from '@/app/components/LoadingSpinner';
 import Badge from '@/app/components/Badge';
 import SearchHistory from '@/app/components/SearchHistory';
-import StatsDashboard from '@/app/components/StatsDashboard';
+
 import { useToast } from '@/app/components/ToastContainer';
 
 interface Peptide {
@@ -226,7 +226,31 @@ export default function ResearchPage() {
 
       {/* Stats Dashboard */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <StatsDashboard stats={totalStats} />
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+            📊 Peptide Statistics
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Total Enriched Peptides</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                {totalStats.enriched}
+              </p>
+            </div>
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">With Synthesis Reports</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                {totalStats.withSynthesis}
+              </p>
+            </div>
+            <div className="bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4">
+              <p className="text-sm text-gray-600 dark:text-gray-400">Phase 2 Only</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2">
+                {totalStats.enriched - totalStats.withSynthesis}
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Main Content */}
