@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import DarkModeToggle from '@/app/components/DarkModeToggle';
@@ -27,7 +27,7 @@ interface PeptideEnrichment {
   };
 }
 
-export default function PeptideEnrichmentsPage() {
+function PeptideEnrichmentsContent() {
   const { addToast } = useToast();
   const searchParams = useSearchParams();
   const [enrichments, setEnrichments] = useState<PeptideEnrichment[]>([]);
@@ -305,5 +305,13 @@ export default function PeptideEnrichmentsPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PeptideEnrichmentsPage() {
+  return (
+    <Suspense fallback={<LoadingSpinner />}>
+      <PeptideEnrichmentsContent />
+    </Suspense>
   );
 }
