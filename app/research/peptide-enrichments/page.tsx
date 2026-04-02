@@ -140,11 +140,11 @@ export default function PeptideEnrichmentsPage() {
                         {enrichment.peptides?.category_function && (
                           <Badge
                             label={enrichment.peptides.category_function}
-                            color="blue"
+                            variant="source"
                           />
                         )}
                         {enrichment.phase_3_synthesis && (
-                          <Badge label="Has Synthesis Report" color="green" />
+                          <Badge label="Has Synthesis Report" variant="date" />
                         )}
                       </div>
                     </div>

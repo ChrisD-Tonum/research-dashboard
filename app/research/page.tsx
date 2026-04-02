@@ -378,15 +378,15 @@ export default function ResearchPage() {
                           {enrichment.peptides?.category_function && (
                             <Badge
                               label={enrichment.peptides.category_function}
-                              color="blue"
+                              variant="source"
                             />
                           )}
                           {enrichment.phase_3_synthesis && (
-                            <Badge label="Synthesis Report" color="green" />
+                            <Badge label="Synthesis Report" variant="date" />
                           )}
                           <Badge
                             label={`Confidence: ${(getConfidenceScore(enrichment) * 100).toFixed(0)}%`}
-                            color={getConfidenceScore(enrichment) > 0.7 ? 'green' : 'yellow'}
+                            variant={getConfidenceScore(enrichment) > 0.7 ? 'date' : 'default'}
                           />
                         </div>
                       </div>

@@ -140,10 +140,10 @@ export default function PeptideSynthesisPage() {
                         {enrichment.peptides?.category_function && (
                           <Badge
                             label={enrichment.peptides.category_function}
-                            color="blue"
+                            variant="source"
                           />
                         )}
-                        <Badge label="Synthesis Generated" color="green" />
+                        <Badge label="Synthesis Generated" variant="date" />
                       </div>
                     </div>
                   </div>
@@ -212,13 +212,7 @@ export default function PeptideSynthesisPage() {
                                       </div>
                                       <Badge
                                         label={app.evidence_strength}
-                                        color={
-                                          app.evidence_strength === 'strong'
-                                            ? 'green'
-                                            : app.evidence_strength === 'moderate'
-                                              ? 'yellow'
-                                              : 'red'
-                                        }
+                                        variant="severity"
                                       />
                                     </div>
                                   </div>
@@ -298,13 +292,7 @@ export default function PeptideSynthesisPage() {
                                       </div>
                                       <Badge
                                         label={rec.priority}
-                                        color={
-                                          rec.priority === 'high'
-                                            ? 'red'
-                                            : rec.priority === 'medium'
-                                              ? 'yellow'
-                                              : 'green'
-                                        }
+                                        variant="severity"
                                       />
                                     </div>
                                   </div>
