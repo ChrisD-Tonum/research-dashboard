@@ -52,7 +52,9 @@ export default function ResearchPage() {
   });
   const [loading, setLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [peptideDropdownOpen, setPeptideDropdownOpen] = useState(false);
   const [availableCategories, setAvailableCategories] = useState<string[]>([]);
+  const [availablePeptides, setAvailablePeptides] = useState<Array<{ id: string; name: string }>>([]);
   
   // Pagination state
   const [pagination, setPagination] = useState<PaginationState>({
@@ -69,48 +71,59 @@ export default function ResearchPage() {
     totalPeptides: 0,
   });
 
-  // Fetch all available categories on mount
+  // Fetch all available categories and peptides on mount
   useEffect(() => {
-    async function fetchCategories() {
+    async function fetchCategoriesAndPeptides() {
       try {
         const { data } = await supabase
           .from('peptide_enrichments')
-          .select('peptides(category_function)') as any;
+          .select('peptides(id, name, category_function)') as any;
 
         const categories = new Set<string>();
+        const peptides = new Set<{ id: string; name: string }>();
+
         if (data) {
           data.forEach((e: any) => {
-            if (e.peptides?.category_function) {
-              categories.add(e.peptides.category_function);
+            if (e.peptides) {
+              if (e.peptides.category_function) {
+                categories.add(e.peptides.category_function);
+              }
+              peptides.add({ id: e.peptides.id, name: e.peptides.name });
             }
           });
         }
 
         setAvailableCategories(Array.from(categories).sort());
+        setAvailablePeptides(Array.from(peptides).sort((a, b) => a.name.localeCompare(b.name)));
       } catch (error) {
-        console.error('Error fetching categories:', error);
+        console.error('Error fetching categories and peptides:', error);
       }
     }
 
-    fetchCategories();
+    fetchCategoriesAndPeptides();
   }, []);
 
-  // Close dropdown when clicking outside
+  // Close dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const categoryFilterDiv = document.getElementById('category-filter-dropdown');
+      const peptideFilterDiv = document.getElementById('peptide-filter-dropdown');
+      
       if (categoryFilterDiv && !categoryFilterDiv.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
+      if (peptideFilterDiv && !peptideFilterDiv.contains(event.target as Node)) {
+        setPeptideDropdownOpen(false);
+      }
     }
 
-    if (dropdownOpen) {
+    if (dropdownOpen || peptideDropdownOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       return () => {
         document.removeEventListener('mousedown', handleClickOutside);
       };
     }
-  }, [dropdownOpen]);
+  }, [dropdownOpen, peptideDropdownOpen]);
 
   // Fetch enrichments whenever search/filter/sort changes
   useEffect(() => {
@@ -258,8 +271,49 @@ export default function ResearchPage() {
         {/* Search and Filters */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
           <div className="space-y-4">
-            {/* Search Bar */}
-            <div>
+            {/* Search Bar + Peptide Dropdown */}
+            <div className="flex gap-3">
+              {/* Peptide Dropdown */}
+              <div className="relative w-48" id="peptide-filter-dropdown">
+                <button
+                  onClick={() => setPeptideDropdownOpen(!peptideDropdownOpen)}
+                  className="w-full flex items-center justify-between px-4 py-2 bg-indigo-100 dark:bg-indigo-900/30 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-lg transition font-medium border border-indigo-300 dark:border-indigo-700"
+                >
+                  <span className="truncate">
+                    {searchTerm || 'Select Peptide...'}
+                  </span>
+                  <span className="text-lg ml-2">▼</span>
+                </button>
+                {peptideDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg z-10 w-full max-h-64 overflow-y-auto">
+                    <button
+                      onClick={() => {
+                        setSearchTerm('');
+                        setPeptideDropdownOpen(false);
+                        setPagination(prev => ({ ...prev, currentPage: 1 }));
+                      }}
+                      className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 border-b border-gray-200 dark:border-gray-600"
+                    >
+                      Clear Selection
+                    </button>
+                    {availablePeptides.map(peptide => (
+                      <button
+                        key={peptide.id}
+                        onClick={() => {
+                          setSearchTerm(peptide.name);
+                          setPeptideDropdownOpen(false);
+                          setPagination(prev => ({ ...prev, currentPage: 1 }));
+                        }}
+                        className="block w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 truncate"
+                      >
+                        {peptide.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Search Bar */}
               <input
                 type="text"
                 placeholder="Search peptides by name..."
@@ -268,7 +322,7 @@ export default function ResearchPage() {
                   setSearchTerm(e.target.value);
                   setPagination(prev => ({ ...prev, currentPage: 1 }));
                 }}
-                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
