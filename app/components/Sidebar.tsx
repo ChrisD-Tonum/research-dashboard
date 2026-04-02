@@ -32,12 +32,6 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       icon: '📊',
       description: 'AI synthesis reports',
     },
-    {
-      label: 'Legacy: Articles',
-      href: '/research/synthesis',
-      icon: '📄',
-      description: 'Old pipeline data',
-    },
   ];
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/');
